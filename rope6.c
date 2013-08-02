@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 #include <stdio.h>
 #include "rope6.h"
 
@@ -114,6 +115,18 @@ void rle_split(int block_len, uint8_t *block, uint8_t *new_block)
 	*p = (q - block) << 4 | (*p&0xf);
 }
 
+void rle_count(int block_len, const uint8_t *block, int64_t cnt[6])
+{
+	uint32_t *p = (uint32_t*)(block + block_len - 4);
+	const uint8_t *q = block, *end = block + (*p>>4);
+	while (q < end) {
+		int c;
+		int64_t l;
+		q += rle_dec(q, &c, &l);
+		cnt[c] += l;
+	}
+}
+
 void rle_print(int block_len, const uint8_t *block)
 {
 	uint32_t *p = (uint32_t*)(block + block_len - 4);
@@ -135,25 +148,25 @@ void rle_print(int block_len, const uint8_t *block)
 typedef struct r6_node_s {
 	struct r6_node_s *p; // child; at the bottom level, $p points to a string with the first 4 bytes giving the number of runs (#runs)
 	uint64_t l:54, n:9, is_bottom:1; // $n and $is_bottom are only set for the first node in a bucket
-	uint64_t c[6]; // marginal counts
+	int64_t c[6]; // marginal counts
 } node_t;
 
 struct rope6_s {
-	int max_nodes, max_len; // both MUST BE even numbers
-	uint64_t c[6]; // marginal counts
+	int max_nodes, block_len; // both MUST BE even numbers
+	int64_t c[6]; // marginal counts
 	node_t *root;
 	mempool_t *node, *leaf;
 };
 
-rope6_t *r6_init(int max_nodes, int max_len)
+rope6_t *r6_init(int max_nodes, int block_len)
 {
 	rope6_t *rope;
 	rope = calloc(1, sizeof(rope6_t));
-	if (max_len < 32) max_len = 32;
-	rope->max_nodes= (max_nodes+ 1)>>1<<1;
-	rope->max_len = ((max_len + 1)>>1<<1) - 7; // -7 to make room for the info 4 bytes and the 8-byte integer
+	if (block_len < 32) block_len = 32;
+	rope->max_nodes = (max_nodes+ 1)>>1<<1;
+	rope->block_len = ((block_len + 1)>>1<<1) - 7; // -7 to make room for the info 4 bytes and the 8-byte integer
 	rope->node = mp_init(sizeof(node_t) * rope->max_nodes);
-	rope->leaf = mp_init(rope->max_len + 7); // +7 for the same reason
+	rope->leaf = mp_init(rope->block_len + 7); // +7 for the same reason
 	rope->root = mp_alloc(rope->node);
 	rope->root->n = 1;
 	rope->root->is_bottom = 1;
@@ -166,4 +179,69 @@ void r6_destroy(rope6_t *rope)
 	mp_destroy(rope->node);
 	mp_destroy(rope->leaf);
 	free(rope);
+}
+
+static inline node_t *split_node(rope6_t *rope, node_t *u, node_t *v)
+{ // split $v's child. $u is the first node in the bucket. $v and $u are in the same bucket. IMPORTANT: there is always enough room in $u
+	int j, i = v - u;
+	node_t *w; // $w is the sibling of $v
+	if (u == 0) { // only happens at the root; add a new root
+		u = v = mp_alloc(rope->node);
+		v->n = 1; v->p = rope->root; // the new root has the old root as the only child
+		memcpy(v->c, rope->c, 48);
+		for (j = 0; j < 6; ++j) v->l += v->c[j];
+		rope->root = v;
+	}
+	if (i != u->n - 1) // then make room for a new node
+		memmove(v + 2, v + 1, sizeof(node_t) * (u->n - i - 1));
+	++u->n; w = v + 1;
+	memset(w, 0, sizeof(node_t));
+	w->p = mp_alloc(u->is_bottom? rope->leaf : rope->node);
+	if (u->is_bottom) { // we are at the bottom level; $v->p is a string instead of a node
+		uint8_t *p = (uint8_t*)v->p, *q = (uint8_t*)w->p;
+		rle_split(rope->block_len, p, q);
+		rle_count(rope->block_len, q, w->c);
+	} else { // $v->p is a node, not a string
+		node_t *p = v->p, *q = w->p; // $v and $w are siblings and thus $p and $q are cousins
+		p->n -= rope->max_nodes>>1;
+		memcpy(q, p + p->n, sizeof(node_t) * (rope->max_nodes>>1));
+		q->n = rope->max_nodes>>1; // NB: this line must below memcpy() as $q->n and $q->is_bottom are modified by memcpy()
+		q->is_bottom = p->is_bottom;
+		for (i = 0; i < q->n; ++i)
+			for (j = 0; j < 6; ++j)
+				w->c[j] += q[i].c[j];
+	}
+	for (j = 0; j < 6; ++j) // compute $w->l and update $v->c
+		w->l += w->c[j], v->c[j] -= w->c[j];
+	v->l -= w->l; // update $v->c
+	return v;
+}
+
+int64_t r6_insert_symbol(rope6_t *rope, int a, int64_t x)
+{ // insert $a after $x symbols in $rope and the returns the position of the next insertion
+	node_t *u = 0, *v = 0, *p = rope->root; // $v is the parent of $p; $u and $v are at the same level and $u is the first node in the bucket
+	int64_t y = 0, z;
+	int i;
+	for (i = 0, z = 0; i < a; ++i) z += rope->c[i];
+	do { // top-down update. Searching and node splitting are done together in one pass.
+		if (p->n == rope->max_nodes) { // node is full; split
+			v = split_node(rope, u, v); // $v points to the parent of $p; when a new root is added, $v points to the root
+			if (y + v->l < x) // if $v is not long enough after the split, we need to move both $p and its parent $v
+				y += v->l, z += v->c[a], ++v, p = v->p;
+		}
+		u = p;
+		if (v && x - y > v->l>>1) { // then search backwardly for the right node to descend
+			p += p->n - 1; y += v->l; z += v->c[a];
+			for (; y >= x; --p) y -= p->l, z -= p->c[a];
+			++p;
+		} else for (; y + p->l < x; ++p) y += p->l, z += p->c[a]; // then search forwardly
+		assert(p - u < u->n);
+		if (v) ++v->c[a], ++v->l; // we should not change p->c[a] because this may cause troubles when p's child is split
+		v = p; p = p->p; // descend
+	} while (!u->is_bottom);
+	++rope->c[a]; // $rope->c should be updated after the loop as adding a new root needs the old $rope->c counts
+	z += insert_to_leaf((uint8_t*)p, a, x - y, v->l, v->c) + 1;
+	++v->c[a]; ++v->l; // this should be below insert_to_leaf(); otherwise insert_to_leaf() will not work
+	if (*(uint32_t*)p + 2 > rope->block_len) split_node(rope, u, v);
+	return z;
 }
