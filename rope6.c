@@ -101,31 +101,16 @@ int rle_insert(int block_len, uint8_t *block, int64_t x, int a, int64_t rl, int6
 	return (*p>>4) + 8 + (*p&0xf)*2 > block_len - 7? 1 : 0;
 }
 
-void rle_print(FILE *fp, int block_len, const uint8_t *block)
+void rle_print(int block_len, const uint8_t *block)
 {
 	uint32_t *p = (uint32_t*)(block + block_len - 4);
 	const uint8_t *q = block, *end = block + (*p>>4);
 	int c;
 	int64_t l;
-	fprintf(fp, "%d\t%d\t", *p>>4, *p&0xf);
+	printf("%d\t%d\t", *p>>4, *p&0xf);
 	while (q < end) {
 		q += rle_dec(q, &c, &l);
-		fprintf(fp, "%c%ld", "$ACGTN"[c], (long)l);
+		printf("%c%ld", "$ACGTN"[c], (long)l);
 	}
-	fprintf(fp, "\n");
-}
-
-int main(void)
-{
-	int block_len = 512;
-	uint8_t block[512];
-	int64_t cnt[6];
-	memset(block, 0, 512);
-	rle_insert(block_len, block, 0, 2, 30, cnt);
-	rle_print(stdout, block_len, block);
-	rle_insert(block_len, block, 2, 3, 3, cnt);
-	rle_print(stdout, block_len, block);
-	rle_insert(block_len, block, 5, 2, 4, cnt);
-	rle_print(stdout, block_len, block);
-	return 0;
+	putchar('\n');
 }

@@ -3,6 +3,17 @@
 
 #include <stdint.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+	int rle_insert(int block_len, uint8_t *block, int64_t x, int a, int64_t rl, int64_t cnt[6]);
+	void rle_print(int block_len, const uint8_t *block);
+
+#ifdef __cplusplus
+}
+#endif
+
 static inline int rle_dec(const uint8_t *p, int *c, int64_t *l)
 { // FIXME: little-endian ONLY!!!
 	const uint64_t rle_const = 0x232235314C484440ULL;
