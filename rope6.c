@@ -102,14 +102,26 @@ int rle_insert(int block_len, uint8_t *block, int64_t x, int a, int64_t rl, int6
 	return (*p>>4) + 8 + (*p&0xf)*2 > block_len - 7? 1 : 0;
 }
 
+void rle_split(int block_len, uint8_t *block, uint8_t *new_block)
+{
+	uint32_t *r, *p = (uint32_t*)(block + block_len - 4);
+	uint8_t *q = block, *end = block + (*p>>4>>1);
+	while (q < end) q += rle_bytes(p);
+	end = block + (*p>>4);
+	memcpy(new_block, q, end - q);
+	r = (uint32_t*)(new_block + block_len - 4);
+	*r = (end - q) << 4 | (*p&0xf);
+	*p = (q - block) << 4 | (*p&0xf);
+}
+
 void rle_print(int block_len, const uint8_t *block)
 {
 	uint32_t *p = (uint32_t*)(block + block_len - 4);
 	const uint8_t *q = block, *end = block + (*p>>4);
-	int c;
-	int64_t l;
 	printf("%d\t%d\t", *p>>4, *p&0xf);
 	while (q < end) {
+		int c;
+		int64_t l;
 		q += rle_dec(q, &c, &l);
 		printf("%c%ld", "$ACGTN"[c], (long)l);
 	}
