@@ -6,6 +6,9 @@
 #define RLE_CONST 0x232235314C484440ULL
 #define rle_bytes(_p) (1 << (RLE_CONST >> (*(_p)>>5<<3) & 3))
 
+struct rope6_s;
+typedef struct rope6_s rope6_t;
+
 #ifdef __cplusplus
 extern "C" {
 #endif

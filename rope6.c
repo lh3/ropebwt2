@@ -127,3 +127,43 @@ void rle_print(int block_len, const uint8_t *block)
 	}
 	putchar('\n');
 }
+
+/***************
+ *** B+ rope ***
+ ***************/
+
+typedef struct r6_node_s {
+	struct r6_node_s *p; // child; at the bottom level, $p points to a string with the first 4 bytes giving the number of runs (#runs)
+	uint64_t l:54, n:9, is_bottom:1; // $n and $is_bottom are only set for the first node in a bucket
+	uint64_t c[6]; // marginal counts
+} node_t;
+
+struct rope6_s {
+	int max_nodes, max_len; // both MUST BE even numbers
+	uint64_t c[6]; // marginal counts
+	node_t *root;
+	mempool_t *node, *leaf;
+};
+
+rope6_t *r6_init(int max_nodes, int max_len)
+{
+	rope6_t *rope;
+	rope = calloc(1, sizeof(rope6_t));
+	if (max_len < 32) max_len = 32;
+	rope->max_nodes= (max_nodes+ 1)>>1<<1;
+	rope->max_len = ((max_len + 1)>>1<<1) - 7; // -7 to make room for the info 4 bytes and the 8-byte integer
+	rope->node = mp_init(sizeof(node_t) * rope->max_nodes);
+	rope->leaf = mp_init(rope->max_len + 7); // +7 for the same reason
+	rope->root = mp_alloc(rope->node);
+	rope->root->n = 1;
+	rope->root->is_bottom = 1;
+	rope->root->p = mp_alloc(rope->leaf);
+	return rope;
+}
+
+void r6_destroy(rope6_t *rope)
+{
+	mp_destroy(rope->node);
+	mp_destroy(rope->leaf);
+	free(rope);
+}
