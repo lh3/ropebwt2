@@ -45,11 +45,11 @@ static inline void *mp_alloc(mempool_t *mp)
 	return mp->mem[mp->top] + (mp->i++) * mp->size;
 }
 
-/**********************
- *** Insert to leaf ***
- **********************/
+/****************************
+ *** Run-length insertion ***
+ ****************************/
 
-// insert symbol $a after $x symbols in $str; marginal counts added to $cnt
+// insert symbol $a after $x symbols in $str; marginal counts added to $cnt; returns the size increase
 int rle_insert_core(int len, uint8_t *str, int64_t x, int a, int64_t rl, int64_t cnt[6], int *m_bytes)
 {
 	memset(cnt, 0, 48);
@@ -91,6 +91,7 @@ int rle_insert_core(int len, uint8_t *str, int64_t x, int a, int64_t rl, int64_t
 	}
 }
 
+// similar to rle_insert_core(), except that this function updates the total length kept in the last 4 bytes in an RLE block
 int rle_insert(int block_len, uint8_t *block, int64_t x, int a, int64_t rl, int64_t cnt[6])
 {
 	int m_bytes, diff;
