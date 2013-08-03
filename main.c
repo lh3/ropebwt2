@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include "rle6.h"
 #include "rope6.h"
 #include "kseq.h"
 KSEQ_INIT(gzFile, gzread)
