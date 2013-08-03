@@ -92,12 +92,19 @@ int rle_insert_core(int len, uint8_t *str, int64_t x, int a, int64_t rl, int64_t
 	}
 }
 
+void rle_check(int block_len, const uint8_t *block)
+{
+	uint32_t *p = (uint32_t*)(block + block_len - 4);
+	const uint8_t *q = block, *end = block + (*p>>4);
+	while (q < end) q += rle_bytes(q);
+	assert(q == end);
+}
+
 // similar to rle_insert_core(), except that this function updates the total length kept in the last 4 bytes in an RLE block
 int rle_insert(int block_len, uint8_t *block, int64_t x, int a, int64_t rl, int64_t cnt[6])
 {
 	int m_bytes, diff;
-	uint32_t *p;
-	p = (uint32_t*)(block + block_len - 4);
+	uint32_t *p = (uint32_t*)(block + block_len - 4);
 	diff = rle_insert_core(*p>>4, block, x, a, rl, cnt, &m_bytes);
 	*p = ((*p>>4) + diff) << 4 | ((*p&0xf) > m_bytes? (*p&0xf) : m_bytes);
 	return (*p>>4) + 8 + (*p&0xf)*2 > block_len - 7? 1 : 0;
@@ -107,7 +114,7 @@ void rle_split(int block_len, uint8_t *block, uint8_t *new_block)
 {
 	uint32_t *r, *p = (uint32_t*)(block + block_len - 4);
 	uint8_t *q = block, *end = block + (*p>>4>>1);
-	while (q < end) q += rle_bytes(p);
+	while (q < end) q += rle_bytes(q);
 	end = block + (*p>>4);
 	memcpy(new_block, q, end - q);
 	r = (uint32_t*)(new_block + block_len - 4);
