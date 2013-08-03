@@ -93,7 +93,7 @@ int main(int argc, char *argv[])
 		const uint8_t *block;
 		itr = r6_itr_init(r6);
 		while ((block = r6_itr_next(itr, &len)) != 0) {
-			uint32_t *p = (uint32_t*)(block + block_len - 4);
+			uint32_t *p = (uint32_t*)(block + len - 4);
 			const uint8_t *q = block, *end = block + (*p>>4);
 			while (q < end) {
 				int c;
@@ -102,6 +102,7 @@ int main(int argc, char *argv[])
 				for (j = 0; j < l; ++j) putchar("$ACGTN"[c]);
 			}
 		}
+		putchar('\n');
 		free(itr);
 	}
 	r6_destroy(r6); fclose(out);

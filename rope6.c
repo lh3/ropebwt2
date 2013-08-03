@@ -70,7 +70,7 @@ int rle_insert_core(int len, uint8_t *str, int64_t x, int a, int64_t rl, int64_t
 			int64_t tl;
 			t_bytes = rle_dec(p, &tc, &tl);
 			if (a == tc)
-				c = tc, n_bytes = t_bytes, l = tl, z += l, p += t_bytes;
+				c = tc, n_bytes = t_bytes, l = tl, z += l, p += t_bytes, cnt[tc] += tl;
 		}
 		if (c < 0) c = a, l = 0, pre = 0; // in this case, x==0 and the next run is different from $a
 		else cnt[c] -= z - x, pre = x - (z - l), p -= n_bytes;
@@ -164,9 +164,9 @@ rope6_t *r6_init(int max_nodes, int block_len)
 	rope = calloc(1, sizeof(rope6_t));
 	if (block_len < 32) block_len = 32;
 	rope->max_nodes = (max_nodes+ 1)>>1<<1;
-	rope->block_len = ((block_len + 1)>>1<<1) - 7; // -7 to make room for the info 4 bytes and the 8-byte integer
+	rope->block_len = (block_len + 7) >> 3 << 3;
 	rope->node = mp_init(sizeof(node_t) * rope->max_nodes);
-	rope->leaf = mp_init(rope->block_len + 7); // +7 for the same reason
+	rope->leaf = mp_init(rope->block_len);
 	rope->root = mp_alloc(rope->node);
 	rope->root->n = 1;
 	rope->root->is_bottom = 1;
@@ -242,8 +242,9 @@ int64_t r6_insert_symbol(rope6_t *rope, int a, int64_t x)
 	++rope->c[a]; // $rope->c should be updated after the loop as adding a new root needs the old $rope->c counts
 	is_split = rle_insert(rope->block_len, (uint8_t*)p, x - y, a, 1, cnt);
 	z += cnt[a] + 1;
-	++v->c[a]; ++v->l; // this should be below insert_to_leaf(); otherwise insert_to_leaf() will not work
+	++v->c[a]; ++v->l; // this should be below rle_insert(); otherwise it won't work
 	if (is_split) split_node(rope, u, v);
+//	printf("%c\t%ld\t%ld\t%ld\n", "$ACGTN"[a], (long)x, (long)z, (long)(cnt[a] + 1));
 	return z;
 }
 
@@ -284,8 +285,8 @@ const uint8_t *r6_itr_next(r6itr_t *i, int *n)
 	const uint8_t *ret;
 	assert(i->k < 80); // a B+ tree should not be that tall
 	if (i->k < 0) return 0;
-	*n = *(int32_t*)i->pa[i->k][i->ia[i->k]].p;
-	ret = (uint8_t*)i->pa[i->k][i->ia[i->k]].p + 4;
+	*n = i->rope->block_len;
+	ret = (uint8_t*)i->pa[i->k][i->ia[i->k]].p;
 	while (i->k >= 0 && ++i->ia[i->k] == i->pa[i->k]->n) i->ia[i->k--] = 0; // backtracking
 	if (i->k >= 0)
 		while (!i->pa[i->k]->is_bottom) // descend to the leftmost leaf
