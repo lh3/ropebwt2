@@ -7,10 +7,9 @@
 extern "C" {
 #endif
 
-	int rle_insert(int block_len, uint8_t *block, int64_t x, int a, int64_t rl, int64_t cnt[6]);
+	int rle_insert1(int block_len, uint8_t *block, int64_t x, int a, int64_t cnt[6], const int64_t end_cnt[6]);
 	void rle_split(int block_len, uint8_t *block, uint8_t *new_block);
 	void rle_count(int block_len, const uint8_t *block, int64_t cnt[6]);
-	void rle_print(int block_len, const uint8_t *block);
 
 #ifdef __cplusplus
 }
@@ -22,6 +21,7 @@ extern "C" {
 
 #define RLE_CONST 0x232235314C484440ULL
 #define rle_bytes(_p) (1 << (RLE_CONST >> (*(_p)>>5<<3) & 3))
+#define rle_runs(len, block) (*(uint32_t*)((block) + (len) - 4) >> 4)
 
 static inline int rle_dec(const uint8_t *p, int *c, int64_t *l)
 { // FIXME: little-endian ONLY!!!
@@ -53,6 +53,15 @@ static inline int rle_enc(uint8_t *p, int c, int64_t l)
 }
 
 #elif RLE_CODEC == 2
+
+#define rle_runs(len, block) (*(uint32_t*)((block) + (len) - 4))
+
+static inline int rle_dec(const uint8_t *p, int *c, int64_t *l)
+{
+	*c = *p&7; *l = *p>>3;
+	return 1;
+}
+
 #endif
 
 #endif
