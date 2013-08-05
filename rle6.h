@@ -22,7 +22,16 @@ extern "C" {
 #define RLE_CONST 0x232235314C484440ULL
 #define rle_bytes(_p) (1 << (RLE_CONST >> (*(_p)>>5<<3) & 3))
 #define rle_runs(len, block) (*(uint32_t*)((block) + (len) - 4) >> 4)
-
+/*
+static inline int rle_dec(const uint8_t *p, int *c, int64_t *l)                                                                                                       
+{
+	const uint64_t x = *(const uint64_t*)p;
+	int d = RLE_CONST >> (x>>5<<3) & 0xff, n_bytes = 1 << (d & 0x3);
+	*c = x & 0x7;
+	*l = (x & ((1ULL << (n_bytes<<3)) - 1)) >> 8 << (d>>4) | (d & 0xc) | (x>>3 & 0x3);
+	return n_bytes;
+}
+*/
 static inline int rle_dec(const uint8_t *p, int *c, int64_t *l)                                                                                                       
 {
 	*c = *p & 0x7;
@@ -32,11 +41,12 @@ static inline int rle_dec(const uint8_t *p, int *c, int64_t *l)
 	} else if ((*p&0xC0) == 0x80) {
 		*l = (uint64_t)p[1] << 3 | (*p >> 3 & 0x7);
 		return 2;
-	} else { // this block actually works in all cases, but it is slower.
-		const uint64_t x = *(const uint64_t*)p;
-		int d = RLE_CONST >> (x>>5<<3) & 0xff, n_bytes = 1 << (d & 0x3);
-		*l = (x>>8 & ((1ULL << ((n_bytes-1)<<3)) - 1)) << (d>>4) | (d & 0xc) | (x>>3 & 0x3);
-		return n_bytes;
+	} else if ((*p&0xE0) == 0xC0) {
+		*l = *(uint32_t*)p >> 8 << 2 | (*p >> 3 & 0x3);
+		return 4;
+	} else {
+		*l = *(uint64_t*)p >> 8 << 2 | (*p >> 3 & 0x3);
+		return 8;
 	}
 }
 
