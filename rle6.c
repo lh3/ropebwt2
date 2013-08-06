@@ -5,9 +5,9 @@
 
 #if RLE_CODEC == 1
 
-/*****************************
- *** Variable-length codec ***
- *****************************/
+/******************
+ *** 58+3 codec ***
+ ******************/
 
 // insert symbol $a after $x symbols in $str; marginal counts added to $cnt; returns the size increase
 int rle_insert_core(int len, uint8_t *str, int64_t x, int a, int64_t rl, int64_t cnt[6], int *m_bytes)
@@ -185,6 +185,9 @@ int rle_insert1(int block_len, uint8_t *block, int64_t x, int a, int64_t r[6], c
 	}
 	*nptr = n;
 	return n + 2 > block_len - 4? 1 : 0;
+
+#undef MAX_RUNLEN
+#undef _insert_after
 }
 
 void rle_split(int block_len, uint8_t *block, uint8_t *new_block)
@@ -201,6 +204,105 @@ void rle_count(int block_len, const uint8_t *block, int64_t cnt[6])
 	uint32_t *nptr = (uint32_t*)(block + block_len - 4);
 	const uint8_t *p = block, *end = p + (*nptr);
 	for (; p != end; ++p) cnt[*p&7] += *p>>3;
+}
+
+#elif RLE_CODEC == 3
+
+/******************
+ *** 11+3 codec ***
+ ******************/
+
+int rle_insert1(int block_len, uint8_t *block, int64_t x, int a, int64_t r[6], const int64_t c[6])
+{
+	uint32_t *nptr = (uint32_t*)(block + block_len - 4);
+	int64_t tot, l;
+	int ql;
+
+	memset(r, 0, 48);
+	if (*nptr == 0) { // an empty block, that is easy
+		*block = 1<<3 | a;
+		*nptr = 1;
+		return 0;
+	}
+
+	end = block + *nptr;
+	tot = c[0] + c[1] + c[2] + c[3] + c[4] + c[5];
+	if (x > len>>1) { // backward search
+		int t = 0;
+		memcpy(r, c, 48);
+		l = tot, p = end;
+		do {
+			--p;
+			if (*p>>7) t += (*p & 0x7f) << 4;
+			else t += *p>>3, l -= t, r[*p&7] -= t, t = 0;
+		} while (l >= x);
+	} else p = block, l = 0;
+	if (l + (*p>>3) < x) { // forward search
+		int b;
+		do {
+			int t;
+			if (*p>>7) t = (*p&0x7f) << 4; // length of this run
+			else t = *p >> 3, b = *p & 7;
+			r[b] += t; l += t;
+			++s;
+		} while (l < x);
+		q = p - 1;
+		for (p = q; *p>>7; --p);
+	} else q = p;
+	r[*p&7] -= l - x;
+	assert(l >= x);
+	assert(p <= q && q < end);
+	assert(*p>>7 == 0);
+	assert(p == q || *q>>7);
+	if (l == x && q < end - 1 && q[1]>>7 == 0 && (q[1]&7) == a)
+		l += rle_run_len(q), p = ++q;
+
+	if ((*p&7) == a) { // insert to an $a run; no need to split
+		if (*p>>3 == 15) {
+			uint8_t *t;
+			*p &= 7;
+			for (t = p + 1; t < end && *t == 0xff; ++t);
+			if (t == end || *t>>7 == 0) {
+				if (t < end) memmove(t + 1, t, end - t);
+				++end;
+				*t = 0x81;
+			} else ++*t;
+		} else *p += 1<<3;
+	} else if (l == x) { // insert to the end of a run; no need to split, either
+		if (++q < end) memmove(q + 1, q, end - q);
+		++end;
+		*q = 1<<3 | a;
+	} else if (p == q) { // break a short run
+		if (++q < end) memmove(q + 2, q, end - q);
+		end += 2;
+		p[0] -= (l-x) << 3;
+		p[1] = 1<<3 | a;
+		p[2] = (l-x) << 3 | (*p&7);
+	} else { // break a long run
+		uint8_t tmp[5];
+		int n_bytes = 0, rest = rle_run_len(q) - (l - x);
+		if (rest < 16) { // fit in a short run
+			if ((*p>>3) + rest < 16) *p += rest<<3; // no need for a new byte
+			else tmp[n_bytes++] = rest<<3 | (*p&7);
+		} else if ((rest & 0xff) == 0) tmp[n_bytes++] = 0x80 | rest>>4;
+		else tmp[n_bytes++] = (rest&0xf)<<3 | (*p&7), tmp[n_bytes++] = 0x80 | rest>>4;
+		tmp[n_bytes++] = 1<<3 | a;
+		rest = l - x;
+		if (rest > 15) {
+			int tmp2 = rest>>4;
+			uint8_t *t;
+			tmp[n_bytes++] = (rest&0xf)<<3 | (*p&7);
+			for (t = q + 1; t < end && (*t&0x80) && (int)(*t&0x7f) + tmp2 <= 0x7f; ++t); // check if we can keep rest>>4 some place behind
+			if (t < end && (*t&0x80)) *t += tmp2;
+			else tmp[n_bytes++] = 0x80 | tmp2;
+		} else tmp[n_bytes++] = rest<<3 | (*p&7);
+		if (q < end) memmove(q + n_bytes + 1, q + 1, end - q - 1);
+		end += n_bytes;
+		memcpy(q, tmp, n_bytes);
+	}
+
+	*nptr = end - block;
+	return *nptr + 4 <= block_len - 4? 1 : 0;
 }
 
 #endif
