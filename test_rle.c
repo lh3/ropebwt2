@@ -17,14 +17,18 @@ int main(void)
 	rle_insert1(block_len, block, 12, 2, cnt, end_cnt);
 	++end_cnt[2];
 	rle_print(block_len, block);
-/*
+
 	rle_insert1(block_len, block, 13, 1, cnt, end_cnt);
-	++end_cnt[2];
+	++end_cnt[1];
 	rle_print(block_len, block);
 
 	rle_insert1(block_len, block, 200, 2, cnt, end_cnt);
 	++end_cnt[2];
 	rle_print(block_len, block);
-*/
+
+	rle_insert1(block_len, block, 9, 3, cnt, end_cnt);
+	++end_cnt[3];
+	rle_print(block_len, block);
+
 	return 0;
 }

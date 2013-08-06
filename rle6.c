@@ -212,7 +212,7 @@ void rle_count(int block_len, const uint8_t *block, int64_t cnt[6])
  *** 11+3 codec ***
  ******************/
 
-static inline uint8_t insert1(uint8_t *p, uint8_t *e, int l, uint8_t **end)
+static inline uint8_t insert1_core(uint8_t *p, uint8_t *e, int l, uint8_t **end)
 {
 	uint8_t *t, ret = 0;
 	l += *p>>3;
@@ -225,6 +225,17 @@ static inline uint8_t insert1(uint8_t *p, uint8_t *e, int l, uint8_t **end)
 		else ret = 0x80 | (l - (0xff - *t)), *t = 0xff, *end = t + 1;
 	} else ret = 0x80 | l, *end = t;
 	return ret;
+}
+
+static inline void insert1_same(uint8_t *p, uint8_t **end, int l)
+{
+	uint8_t *t, u;
+	u = insert1_core(p, *end, l, &t);
+	if (u>>7) {
+		if (t < *end) memmove(t + 1, t, *end - t);
+		++*end;
+		*t = u;
+	}
 }
 
 int rle_insert1(int block_len, uint8_t *block, int64_t x, int a, int64_t r[6], const int64_t c[6])
@@ -272,21 +283,13 @@ int rle_insert1(int block_len, uint8_t *block, int64_t x, int a, int64_t r[6], c
 	if (l == x && q < end - 1 && q[1]>>7 == 0 && (q[1]&7) == a) // if the next run is an $a run..
 		l += rle_run_len(q), p = ++q;
 
-	if ((*p&7) == a) { // insert to an $a run
-		uint8_t *t, u;
-		u = insert1(p, end, 1, &t);
-		if (u>>7) {
-			if (t < end) memmove(t + 1, t, end - t);
-			++end;
-			*t = u;
-		}
-	} else { // insert to or after a non-$a run
+	if ((*p&7) != a) { // insert to or after a non-$a run
 		uint8_t tmp[5];
 		int n_bytes = 0, rest = rle_run_len(q) - (l - x);
 		// modify the run ahead of the insertion
 		if (p != q) {
 			uint8_t u, *t;
-			u = insert1(p, q, rest, &t);
+			u = insert1_core(p, q, rest, &t);
 			if (u>>7) tmp[n_bytes++] = u;
 		} else tmp[n_bytes++] = rest<<3 | (*p&7);
 		// insert one $a
@@ -307,16 +310,9 @@ int rle_insert1(int block_len, uint8_t *block, int64_t x, int a, int64_t r[6], c
 		if (q < end) memmove(q + n_bytes, q + 1, end - q - 1);
 		end += n_bytes - 1;
 		memcpy(q, tmp, n_bytes);
-		if (rest) {
-			uint8_t u, *t;
-			u = insert1(q + n_bytes - 1, end, rest, &t);
-			if (u>>7) {
-				if (t < end) memmove(t + 1, t, end - t);
-				++end;
-				*t = u;
-			}
-		}
-	}
+		// last insert
+		if (rest) insert1_same(q + n_bytes - 1, &end, rest);
+	} else insert1_same(p, &end, 1);
 
 	*nptr = end - block;
 	return *nptr + 4 <= block_len - 4? 1 : 0;
