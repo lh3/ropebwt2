@@ -211,7 +211,7 @@ void rle_count(int block_len, const uint8_t *block, int64_t cnt[6])
 /******************
  *** 11+3 codec ***
  ******************/
-
+/*
 static inline uint8_t insert1_core(uint8_t *p, uint8_t *e, int l, uint8_t **end)
 {
 	uint8_t *t, ret = 0;
@@ -313,6 +313,90 @@ int rle_insert1(int block_len, uint8_t *block, int64_t x, int a, int64_t r[6], c
 		// last insert
 		if (rest) insert1_same(q + n_bytes - 1, &end, rest);
 	} else insert1_same(p, &end, 1);
+
+	*nptr = end - block;
+	return *nptr + 4 <= block_len - 4? 1 : 0;
+}
+*/
+static inline uint8_t insert_aux(uint8_t *b, uint8_t *e, int l)
+{
+	l += *b >> 3;
+	*b = (l&0xf) << 3 | (*b&7);
+	l >>= 4;
+	if (e == 0) return l? 0x80 | l : 0;
+	if (*e + l < 0x100) {
+		*e += l;
+		return 0;
+	} else {
+		uint8_t u = l - (0xff - *e);
+		*e = 0xff;
+		return 0x80 | u;
+	}
+}
+// $b points to the first run; if $e==0, a short run; otherwise $e points to the last run; $iptr is the insertion point; $l is the length to insert
+static inline int insert_aux2(uint8_t *b, uint8_t *e, uint8_t *iptr, uint8_t *end, int l)
+{
+	uint8_t u;
+	u = insert_aux(b, e, l);
+	if (u) {
+		memmove(iptr + 1, iptr, end - iptr);
+		*iptr = u;
+		return 1;
+	} else return 0;
+}
+
+int rle_insert1(int block_len, uint8_t *block, int64_t x, int a, int64_t r[6], const int64_t c[6])
+{
+	uint32_t *nptr = (uint32_t*)(block + block_len - 4);
+	int64_t tot, l;
+	uint8_t *end, *p, *q, *e;
+
+	memset(r, 0, 48);
+	if (*nptr == 0) { // an empty block, that is easy
+		*block = 1<<3 | a, *nptr = 1;
+		return 0;
+	}
+
+	end = block + *nptr;
+	tot = c[0] + c[1] + c[2] + c[3] + c[4] + c[5];
+	if (1 || x < tot>>1) {
+		int b, t;
+		l = 0, p = block;
+		do {
+			if (*p>>7) t = (*p&0x7f) << 4;
+			else t = *p >> 3, b = *p & 7;
+			r[b] += t; l += t;
+			++p;
+		} while (l < x);
+		for (e = p; e < end && *e>>7; ++e); 
+		q = p - 1;
+		for (p = q; *p>>7; --p);
+	} else {
+	}
+	r[*p&7] -= l - x;
+	if (l == x && q < end - 1 && q[1]>>7 == 0 && (q[1]&7) == a) { // if the next run is an $a run..
+		l += rle_run_len(q), p = ++q;
+		for (e = p + 1; e < end && *e>>7; ++e); 
+	}
+	--e;
+
+	if ((*p&7) == a) {
+		end += insert_aux2(p, e == p? 0 : e, e + 1, end, 1);
+	} else {
+		uint8_t buf[5], *s = buf;
+		int w = rle_run_len(q) - (l - x);
+		if (q != p) {
+			*s = insert_aux(p, 0, w);
+			if (*s) ++s;
+		} else *s++ = w<<3 | (*p&7);
+		*s++ = 1<<3 | a;
+		*s = *p&7;
+		end += insert_aux2(s, e == q? 0 : e, e + 1, end, l - x);
+		if (*s>>3 || (q + 1 < end && q[1]>>7)) ++s;
+		if (q < end) memmove(q + (s - buf), q + 1, end - q - 1);
+		end += (s - buf) - 1;
+		memcpy(q, buf, s - buf);
+	}
 
 	*nptr = end - block;
 	return *nptr + 4 <= block_len - 4? 1 : 0;
