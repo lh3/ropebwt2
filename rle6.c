@@ -216,7 +216,6 @@ int rle_insert1(int block_len, uint8_t *block, int64_t x, int a, int64_t r[6], c
 {
 	uint32_t *nptr = (uint32_t*)(block + block_len - 4);
 	int64_t tot, l;
-	int ql;
 
 	memset(r, 0, 48);
 	if (*nptr == 0) { // an empty block, that is easy
@@ -254,10 +253,10 @@ int rle_insert1(int block_len, uint8_t *block, int64_t x, int a, int64_t r[6], c
 	assert(p <= q && q < end);
 	assert(*p>>7 == 0);
 	assert(p == q || *q>>7);
-	if (l == x && q < end - 1 && q[1]>>7 == 0 && (q[1]&7) == a)
+	if (l == x && q < end - 1 && q[1]>>7 == 0 && (q[1]&7) == a) // if the next run is an $a run..
 		l += rle_run_len(q), p = ++q;
 
-	if ((*p&7) == a) { // insert to an $a run; no need to split
+	if ((*p&7) == a) { // insert to an $a run
 		if (*p>>3 == 15) {
 			uint8_t *t;
 			*p &= 7;
@@ -268,25 +267,18 @@ int rle_insert1(int block_len, uint8_t *block, int64_t x, int a, int64_t r[6], c
 				*t = 0x81;
 			} else ++*t;
 		} else *p += 1<<3;
-	} else if (l == x) { // insert to the end of a run; no need to split, either
-		if (++q < end) memmove(q + 1, q, end - q);
-		++end;
-		*q = 1<<3 | a;
-	} else if (p == q) { // break a short run
-		if (++q < end) memmove(q + 2, q, end - q);
-		end += 2;
-		p[0] -= (l-x) << 3;
-		p[1] = 1<<3 | a;
-		p[2] = (l-x) << 3 | (*p&7);
-	} else { // break a long run
+	} else { // insert to or after a non-$a run
 		uint8_t tmp[5];
 		int n_bytes = 0, rest = rle_run_len(q) - (l - x);
+		// modify the run ahead of the insertion
 		if (rest < 16) { // fit in a short run
-			if ((*p>>3) + rest < 16) *p += rest<<3; // no need for a new byte
-			else tmp[n_bytes++] = rest<<3 | (*p&7);
+			if (p == q || (*p>>3) + rest >= 16) tmp2[n_bytes++] = rest<<3 | (*p&7);
+			else *p += rest<<3; // no need for a new byte
 		} else if ((rest & 0xff) == 0) tmp[n_bytes++] = 0x80 | rest>>4;
 		else tmp[n_bytes++] = (rest&0xf)<<3 | (*p&7), tmp[n_bytes++] = 0x80 | rest>>4;
+		// insert one $a
 		tmp[n_bytes++] = 1<<3 | a;
+		// modify the run following the insertion
 		rest = l - x;
 		if (rest > 15) {
 			int tmp2 = rest>>4;
@@ -295,9 +287,10 @@ int rle_insert1(int block_len, uint8_t *block, int64_t x, int a, int64_t r[6], c
 			for (t = q + 1; t < end && (*t&0x80) && (int)(*t&0x7f) + tmp2 <= 0x7f; ++t); // check if we can keep rest>>4 some place behind
 			if (t < end && (*t&0x80)) *t += tmp2;
 			else tmp[n_bytes++] = 0x80 | tmp2;
-		} else tmp[n_bytes++] = rest<<3 | (*p&7);
-		if (q < end) memmove(q + n_bytes + 1, q + 1, end - q - 1);
-		end += n_bytes;
+		} else if (rest) tmp[n_bytes++] = rest<<3 | (*p&7);
+		// actual insertion
+		if (q < end) memmove(q + n_bytes, q + 1, end - q - 1);
+		end += n_bytes - 1;
 		memcpy(q, tmp, n_bytes);
 	}
 
