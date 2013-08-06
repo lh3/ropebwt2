@@ -216,6 +216,7 @@ int rle_insert1(int block_len, uint8_t *block, int64_t x, int a, int64_t r[6], c
 {
 	uint32_t *nptr = (uint32_t*)(block + block_len - 4);
 	int64_t tot, l;
+	uint8_t *end, *p, *q;
 
 	memset(r, 0, 48);
 	if (*nptr == 0) { // an empty block, that is easy
@@ -226,7 +227,7 @@ int rle_insert1(int block_len, uint8_t *block, int64_t x, int a, int64_t r[6], c
 
 	end = block + *nptr;
 	tot = c[0] + c[1] + c[2] + c[3] + c[4] + c[5];
-	if (x > len>>1) { // backward search
+	if (x > tot>>1) { // backward search
 		int t = 0;
 		memcpy(r, c, 48);
 		l = tot, p = end;
@@ -243,11 +244,11 @@ int rle_insert1(int block_len, uint8_t *block, int64_t x, int a, int64_t r[6], c
 			if (*p>>7) t = (*p&0x7f) << 4; // length of this run
 			else t = *p >> 3, b = *p & 7;
 			r[b] += t; l += t;
-			++s;
+			++p;
 		} while (l < x);
 		q = p - 1;
 		for (p = q; *p>>7; --p);
-	} else q = p;
+	} else q = p, l += *p>>3;
 	r[*p&7] -= l - x;
 	assert(l >= x);
 	assert(p <= q && q < end);
@@ -272,7 +273,7 @@ int rle_insert1(int block_len, uint8_t *block, int64_t x, int a, int64_t r[6], c
 		int n_bytes = 0, rest = rle_run_len(q) - (l - x);
 		// modify the run ahead of the insertion
 		if (rest < 16) { // fit in a short run
-			if (p == q || (*p>>3) + rest >= 16) tmp2[n_bytes++] = rest<<3 | (*p&7);
+			if ((p == q && rest) || (*p>>3) + rest >= 16) tmp[n_bytes++] = rest<<3 | (*p&7);
 			else *p += rest<<3; // no need for a new byte
 		} else if ((rest & 0xff) == 0) tmp[n_bytes++] = 0x80 | rest>>4;
 		else tmp[n_bytes++] = (rest&0xf)<<3 | (*p&7), tmp[n_bytes++] = 0x80 | rest>>4;
@@ -287,7 +288,7 @@ int rle_insert1(int block_len, uint8_t *block, int64_t x, int a, int64_t r[6], c
 			for (t = q + 1; t < end && (*t&0x80) && (int)(*t&0x7f) + tmp2 <= 0x7f; ++t); // check if we can keep rest>>4 some place behind
 			if (t < end && (*t&0x80)) *t += tmp2;
 			else tmp[n_bytes++] = 0x80 | tmp2;
-		} else if (rest) tmp[n_bytes++] = rest<<3 | (*p&7);
+		} else if (rest || (q + 1 < end && q[1]>>7)) tmp[n_bytes++] = rest<<3 | (*p&7);
 		// actual insertion
 		if (q < end) memmove(q + n_bytes, q + 1, end - q - 1);
 		end += n_bytes - 1;
@@ -296,6 +297,18 @@ int rle_insert1(int block_len, uint8_t *block, int64_t x, int a, int64_t r[6], c
 
 	*nptr = end - block;
 	return *nptr + 4 <= block_len - 4? 1 : 0;
+}
+
+void rle_print(int block_len, const uint8_t *block)
+{
+	int b = 0;
+	const uint8_t *p, *end;
+	end = block + *(uint32_t*)(block + block_len - 4);
+	for (p = block; p < end; ++p) {
+		if (*p>>7) printf("%c%d", "$ACGTN"[b], (*p&0x7f)<<4);
+		else printf("%c%d", "$ACGTN"[b=*p&7], *p>>3);
+	}
+	putchar('\n');
 }
 
 #endif

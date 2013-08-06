@@ -15,7 +15,7 @@ extern "C" {
 }
 #endif
 
-#define RLE_CODEC 2
+#define RLE_CODEC 3
 
 #if RLE_CODEC == 1
 
@@ -82,15 +82,8 @@ static inline int rle_dec(const uint8_t *p, int *c, int64_t *l)
 
 #elif RLE_CODEC == 3
 
+#define rle_runs(len, block) (*(uint32_t*)((block) + (len) - 4))
 #define rle_run_len(p) ((*p)>>7? ((*p)&0x7f)<<4 : (*p)>>3)
-
-static inline void rle_dec2(const uint8_t *p, const uint8_t *end, int *c, int64_t *l)
-{
-	const uint8_t *p0 = p;
-	*c = *p & 7; *l = 0;
-	while (p != end)
-		*l += *p>>7? (*p&0x7f)<<4 : *p>>3;
-}
 
 #endif
 
