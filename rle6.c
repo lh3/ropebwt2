@@ -212,6 +212,21 @@ void rle_count(int block_len, const uint8_t *block, int64_t cnt[6])
  *** 11+3 codec ***
  ******************/
 
+static inline uint8_t insert1(uint8_t *p, uint8_t *e, int l, uint8_t **end)
+{
+	uint8_t *t, ret = 0;
+	l += *p>>3;
+	*p = (l&0xf)<<3 | (*p&7);
+	l >>= 4;
+	if (l == 0) return 0;
+	for (t = p + 1; t < e && *t == 0xff; ++t);
+	if (t < e && *t>>7) {
+		if (l + *t <= 0xff) *t += l;
+		else ret = 0x80 | (l - (0xff - *t)), *t = 0xff, *end = t + 1;
+	} else ret = 0x80 | l, *end = t;
+	return ret;
+}
+
 int rle_insert1(int block_len, uint8_t *block, int64_t x, int a, int64_t r[6], const int64_t c[6])
 {
 	uint32_t *nptr = (uint32_t*)(block + block_len - 4);
@@ -258,41 +273,49 @@ int rle_insert1(int block_len, uint8_t *block, int64_t x, int a, int64_t r[6], c
 		l += rle_run_len(q), p = ++q;
 
 	if ((*p&7) == a) { // insert to an $a run
-		if (*p>>3 == 15) {
-			uint8_t *t;
-			*p &= 7;
-			for (t = p + 1; t < end && *t == 0xff; ++t);
-			if (t == end || *t>>7 == 0) {
-				if (t < end) memmove(t + 1, t, end - t);
-				++end;
-				*t = 0x81;
-			} else ++*t;
-		} else *p += 1<<3;
+		uint8_t *t, u;
+		u = insert1(p, end, 1, &t);
+		if (u>>7) {
+			if (t < end) memmove(t + 1, t, end - t);
+			++end;
+			*t = u;
+		}
 	} else { // insert to or after a non-$a run
 		uint8_t tmp[5];
 		int n_bytes = 0, rest = rle_run_len(q) - (l - x);
 		// modify the run ahead of the insertion
-		if (rest < 16) { // fit in a short run
-			if ((p == q && rest) || (*p>>3) + rest >= 16) tmp[n_bytes++] = rest<<3 | (*p&7);
-			else *p += rest<<3; // no need for a new byte
-		} else if ((rest & 0xff) == 0) tmp[n_bytes++] = 0x80 | rest>>4;
-		else tmp[n_bytes++] = (rest&0xf)<<3 | (*p&7), tmp[n_bytes++] = 0x80 | rest>>4;
+		if (p != q) {
+			uint8_t u, *t;
+			u = insert1(p, q, rest, &t);
+			if (u>>7) tmp[n_bytes++] = u;
+		} else tmp[n_bytes++] = rest<<3 | (*p&7);
 		// insert one $a
 		tmp[n_bytes++] = 1<<3 | a;
 		// modify the run following the insertion
 		rest = l - x;
 		if (rest > 15) {
-			int tmp2 = rest>>4;
-			uint8_t *t;
 			tmp[n_bytes++] = (rest&0xf)<<3 | (*p&7);
-			for (t = q + 1; t < end && (*t&0x80) && (int)(*t&0x7f) + tmp2 <= 0x7f; ++t); // check if we can keep rest>>4 some place behind
-			if (t < end && (*t&0x80)) *t += tmp2;
-			else tmp[n_bytes++] = 0x80 | tmp2;
-		} else if (rest || (q + 1 < end && q[1]>>7)) tmp[n_bytes++] = rest<<3 | (*p&7);
+			if (q + 1 < end && q[1]>>7 == 0) {
+				tmp[n_bytes++] = 0x80 | rest>>4;
+				rest = 0;
+			} else rest -= rest&0xf;
+		} else {
+			if (rest || (q + 1 < end && q[1]>>7)) tmp[n_bytes++] = rest<<3 | (*p&7);
+			rest = 0;
+		}
 		// actual insertion
 		if (q < end) memmove(q + n_bytes, q + 1, end - q - 1);
 		end += n_bytes - 1;
 		memcpy(q, tmp, n_bytes);
+		if (rest) {
+			uint8_t u, *t;
+			u = insert1(q + n_bytes - 1, end, rest, &t);
+			if (u>>7) {
+				if (t < end) memmove(t + 1, t, end - t);
+				++end;
+				*t = u;
+			}
+		}
 	}
 
 	*nptr = end - block;
