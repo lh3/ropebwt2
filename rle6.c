@@ -414,4 +414,26 @@ void rle_print(int block_len, const uint8_t *block)
 	putchar('\n');
 }
 
+void rle_split(int block_len, uint8_t *block, uint8_t *new_block)
+{
+	uint32_t *nptr = (uint32_t*)(block + block_len - 4);
+	int beg = *nptr >> 1, off = 0;
+	if (block[beg]>>7) {
+		uint8_t *p;
+		for (p = block + beg - 1; *p>>7; --p);
+		new_block[0] = *p&7;
+		off = 1;
+	}
+	memcpy(new_block + off, block + beg, (*nptr) - beg);
+	*(uint32_t*)(new_block + block_len - 4) = *nptr - beg + off;
+	*nptr = beg;
+}
+
+void rle_count(int block_len, const uint8_t *block, int64_t cnt[6])
+{
+	uint32_t *nptr = (uint32_t*)(block + block_len - 4);
+	const uint8_t *p = block, *end = p + (*nptr);
+	for (; p != end; ++p) cnt[*p&7] += rle_run_len(p);
+}
+
 #endif
