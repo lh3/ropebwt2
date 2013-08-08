@@ -24,10 +24,10 @@ int rle_insert_core(int len, uint8_t *str, int64_t x, int a, int64_t rl, int64_t
 		if (x <= tot>>1) {
 			z = 0; p = str;
 			while (z < x) {
-				q = p;
 				rle_dec1(p, c, l);
 				z += l; cnt[c] += l;
 			}
+			for (q = p - 1; *q>>6 == 2; --q);
 		} else {
 			memcpy(cnt, ec, 48);
 			z = tot; p = end;
