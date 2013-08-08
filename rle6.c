@@ -359,8 +359,8 @@ int rle_insert1(int block_len, uint8_t *block, int64_t x, int a, int64_t r[6], c
 
 	end = block + *nptr;
 	tot = c[0] + c[1] + c[2] + c[3] + c[4] + c[5];
-	if (1 || x < tot>>1) {
-		int b, t;
+	if (x < tot>>1) {
+		int b = 0, t;
 		l = 0, p = block;
 		do {
 			if (*p>>7) t = (*p&0x7f) << 4;
@@ -372,6 +372,23 @@ int rle_insert1(int block_len, uint8_t *block, int64_t x, int a, int64_t r[6], c
 		q = p - 1;
 		for (p = q; *p>>7; --p);
 	} else {
+		int b = 0, t = 0;
+		memcpy(r, c, 48);
+		l = tot, p = end;
+		do {
+			--p;
+			if (*p>>7) t += (*p & 0x7f) << 4;
+			else t += *p>>3, l -= t, r[*p&7] -= t, t = 0;
+		} while (l >= x);
+		q = p;
+		do {
+			if (*q>>7) t = (*q&0x7f) << 4;
+			else t = *q >> 3, b = *q & 7;
+			r[b] += t; l += t;
+			++q;
+		} while (l < x);
+		--q;
+		for (e = q + 1; e < end && *e>>7; ++e); 
 	}
 	r[*p&7] -= l - x;
 	if (l == x && q < end - 1 && q[1]>>7 == 0 && (q[1]&7) == a) { // if the next run is an $a run..
@@ -399,7 +416,7 @@ int rle_insert1(int block_len, uint8_t *block, int64_t x, int a, int64_t r[6], c
 	}
 
 	*nptr = end - block;
-	return *nptr + 4 <= block_len - 4? 1 : 0;
+	return *nptr + 4 > block_len - 4? 1 : 0;
 }
 
 void rle_print(int block_len, const uint8_t *block)
