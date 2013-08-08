@@ -3,11 +3,6 @@
 #include <stdio.h>
 #include "rle6.h"
 
-#ifdef __GNUC__
-#define LIKELY(x) __builtin_expect((x),1)
-#else
-#define LIKELY(x) (x)
-#endif
 
 /******************
  *** 43+3 codec ***
@@ -26,28 +21,17 @@ int rle_insert_core(int len, uint8_t *str, int64_t x, int a, int64_t rl, int64_t
 		uint8_t tmp[24];
 		while (z < x) {
 			q = p;
-			c = *p & 7;
-			if (LIKELY((*p&0x80) == 0)) { // 1 byte
-				l = *p++ >> 3;
-			} else if (LIKELY(*p>>5 == 6)) { // 2 bytes
-				l = (*p&0x18L)<<3L | (p[1]&0x7fL);
-				p += 2;
-			} else { // 4 or 8 bytes
-				int i, n = rle_bytes(p);
-				l = (*p&8LL) << (n == 4? 15:39);
-				for (i = 1; i < n; ++i) // slower if unroll the loop!!!
-					l = (l<<6) | (p[i]&0x7f);
-				p += n;
-			}
+			rle_dec1(p, c, l);
 			z += l; cnt[c] += l;
 		}
 		n_bytes = p - q;
 		if (x == z && a != c && p < end) { // then try the next run
-			int t_bytes, tc;
+			int tc;
 			int64_t tl;
-			t_bytes = rle_dec(p, &tc, &tl);
+			q = p;
+			rle_dec1(q, tc, tl);
 			if (a == tc)
-				c = tc, n_bytes = t_bytes, l = tl, z += l, p += t_bytes, cnt[tc] += tl;
+				c = tc, n_bytes = q - p, l = tl, z += l, p = q, cnt[tc] += tl;
 		}
 		if (c < 0) c = a, l = 0, pre = 0; // in this case, x==0 and the next run is different from $a
 		else cnt[c] -= z - x, pre = x - (z - l), p -= n_bytes;
@@ -111,7 +95,7 @@ void rle_count(int block_len, const uint8_t *block, int64_t cnt[6])
 	while (q < end) {
 		int c;
 		int64_t l;
-		q += rle_dec(q, &c, &l);
+		rle_dec1(q, c, l);
 		cnt[c] += l;
 	}
 }
@@ -124,7 +108,7 @@ void rle_print(int block_len, const uint8_t *block)
 	while (q < end) {
 		int c;
 		int64_t l;
-		q += rle_dec(q, &c, &l);
+		rle_dec1(q, c, l);
 		printf("%c%ld", "$ACGTN"[c], (long)l);
 	}
 	putchar('\n');

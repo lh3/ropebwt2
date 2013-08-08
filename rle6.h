@@ -3,7 +3,13 @@
 
 #include <stdint.h>
 
+#ifdef __GNUC__
+#define LIKELY(x) __builtin_expect((x),1)
+#else
+#define LIKELY(x) (x)
+#endif
 #ifdef __cplusplus
+
 extern "C" {
 #endif
 
@@ -23,23 +29,37 @@ extern "C" {
 #define rle_bytes(_p) (RLE_CONST >> (*(_p)>>4<<2) & 0xf)
 #define rle_runs(len, block) (*(uint32_t*)((block) + (len) - 4) >> 4)
 
-static inline int rle_dec(const uint8_t *p, int *c, int64_t *l)
-{
-	*c = *p & 7;
-	if ((*p&0x80) == 0) { // 1 byte
-		*l = *p >> 3;
-		return 1;
-	} else if (*p>>5 == 6) { // 2 bytes
-		*l = (*p&0x18L)<<3L | (p[1]&0x3fL);
-		return 2;
-	} else { // 4 or 8 bytes
-		int i, n = rle_bytes(p);
-		*l = (*p&8LL) << (n == 4? 15:39);
-		for (i = 1; i < n; ++i) // slower if unrool the loop!!!
-			*l = (*l<<6) | (p[i]&0x3f);
-		return n;
-	}
-}
+// decode one run (c,l) and move the pointer p
+#define rle_dec1(p, c, l) do { \
+		(c) = *(p) & 7; \
+		if (LIKELY((*(p)&0x80) == 0)) { \
+			(l) = *(p)++ >> 3; \
+		} else if (LIKELY(*p>>5 == 6)) { \
+			(l) = (*(p)&0x18L)<<3L | ((p)[1]&0x7fL); \
+			(p) += 2; \
+		} else { \
+			int i, n = rle_bytes(p); \
+			l = (*(p)&8LL) << (n == 4? 15 : 39); \
+			for (i = 1; i < n; ++i) \
+				l = (l<<6) | ((p)[i]&0x7f); \
+			(p) += n; \
+		} \
+	} while (0)
+
+// similar to rle_dec1() except that it does not change p
+#define rle_dec0(p, c, l) do { \
+		(c) = *(p) & 7; \
+		if (LIKELY((*(p)&0x80) == 0)) { \
+			(l) = *(p) >> 3; \
+		} else if (LIKELY(*p>>5 == 6)) { \
+			(l) = (*(p)&0x18L)<<3L | ((p)[1]&0x7fL); \
+		} else { \
+			int i, n = rle_bytes(p); \
+			l = (*(p)&8LL) << (n == 4? 15 : 39); \
+			for (i = 1; i < n; ++i) \
+				l = (l<<6) | ((p)[i]&0x7f); \
+		} \
+	} while (0)
 
 static inline int rle_enc(uint8_t *p, int c, int64_t l)
 {

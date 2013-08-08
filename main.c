@@ -95,16 +95,10 @@ int main(int argc, char *argv[])
 		itr = r6_itr_init(r6);
 		while ((block = r6_itr_next(itr, &len)) != 0) {
 			const uint8_t *q = block, *end = block + rle_runs(block, len);
-			int c = 0;
 			while (q < end) {
+				int c = 0;
 				int64_t j, l;
-#if RLE_CODEC != 3
-				q += rle_dec(q, &c, &l);
-#else
-				if (*q>>7) l = (*q&0x7f)<<4;
-				else c = *q&7, l = *q>>3;
-				++q;
-#endif
+				rle_dec1(q, c, l);
 				for (j = 0; j < l; ++j) putchar("$ACGTN"[c]);
 			}
 		}
