@@ -211,113 +211,7 @@ void rle_count(int block_len, const uint8_t *block, int64_t cnt[6])
 /******************
  *** 11+3 codec ***
  ******************/
-/*
-static inline uint8_t insert1_core(uint8_t *p, uint8_t *e, int l, uint8_t **end)
-{
-	uint8_t *t, ret = 0;
-	l += *p>>3;
-	*p = (l&0xf)<<3 | (*p&7);
-	l >>= 4;
-	if (l == 0) return 0;
-	for (t = p + 1; t < e && *t == 0xff; ++t);
-	if (t < e && *t>>7) {
-		if (l + *t <= 0xff) *t += l;
-		else ret = 0x80 | (l - (0xff - *t)), *t = 0xff, *end = t + 1;
-	} else ret = 0x80 | l, *end = t;
-	return ret;
-}
 
-static inline void insert1_same(uint8_t *p, uint8_t **end, int l)
-{
-	uint8_t *t, u;
-	u = insert1_core(p, *end, l, &t);
-	if (u>>7) {
-		if (t < *end) memmove(t + 1, t, *end - t);
-		++*end;
-		*t = u;
-	}
-}
-
-int rle_insert1(int block_len, uint8_t *block, int64_t x, int a, int64_t r[6], const int64_t c[6])
-{
-	uint32_t *nptr = (uint32_t*)(block + block_len - 4);
-	int64_t tot, l;
-	uint8_t *end, *p, *q;
-
-	memset(r, 0, 48);
-	if (*nptr == 0) { // an empty block, that is easy
-		*block = 1<<3 | a;
-		*nptr = 1;
-		return 0;
-	}
-
-	end = block + *nptr;
-	tot = c[0] + c[1] + c[2] + c[3] + c[4] + c[5];
-	if (x > tot>>1) { // backward search
-		int t = 0;
-		memcpy(r, c, 48);
-		l = tot, p = end;
-		do {
-			--p;
-			if (*p>>7) t += (*p & 0x7f) << 4;
-			else t += *p>>3, l -= t, r[*p&7] -= t, t = 0;
-		} while (l >= x);
-	} else p = block, l = 0;
-	if (l + (*p>>3) < x) { // forward search
-		int b;
-		do {
-			int t;
-			if (*p>>7) t = (*p&0x7f) << 4; // length of this run
-			else t = *p >> 3, b = *p & 7;
-			r[b] += t; l += t;
-			++p;
-		} while (l < x);
-		q = p - 1;
-		for (p = q; *p>>7; --p);
-	} else q = p, l += *p>>3;
-	r[*p&7] -= l - x;
-	assert(l >= x);
-	assert(p <= q && q < end);
-	assert(*p>>7 == 0);
-	assert(p == q || *q>>7);
-	if (l == x && q < end - 1 && q[1]>>7 == 0 && (q[1]&7) == a) // if the next run is an $a run..
-		l += rle_run_len(q), p = ++q;
-
-	if ((*p&7) != a) { // insert to or after a non-$a run
-		uint8_t tmp[5];
-		int n_bytes = 0, rest = rle_run_len(q) - (l - x);
-		// modify the run ahead of the insertion
-		if (p != q) {
-			uint8_t u, *t;
-			u = insert1_core(p, q, rest, &t);
-			if (u>>7) tmp[n_bytes++] = u;
-		} else tmp[n_bytes++] = rest<<3 | (*p&7);
-		// insert one $a
-		tmp[n_bytes++] = 1<<3 | a;
-		// modify the run following the insertion
-		rest = l - x;
-		if (rest > 15) {
-			tmp[n_bytes++] = (rest&0xf)<<3 | (*p&7);
-			if (q + 1 < end && q[1]>>7 == 0) {
-				tmp[n_bytes++] = 0x80 | rest>>4;
-				rest = 0;
-			} else rest -= rest&0xf;
-		} else {
-			if (rest || (q + 1 < end && q[1]>>7)) tmp[n_bytes++] = rest<<3 | (*p&7);
-			rest = 0;
-		}
-		// actual insertion
-		if (q < end) memmove(q + n_bytes, q + 1, end - q - 1);
-		end += n_bytes - 1;
-		memcpy(q, tmp, n_bytes);
-		// last insert
-		if (rest) insert1_same(q + n_bytes - 1, &end, rest);
-	} else insert1_same(p, &end, 1);
-
-	*nptr = end - block;
-	return *nptr + 4 <= block_len - 4? 1 : 0;
-}
-*/
 static inline uint8_t insert_aux(uint8_t *b, uint8_t *e, int l)
 {
 	l += *b >> 3;
@@ -368,7 +262,6 @@ int rle_insert1(int block_len, uint8_t *block, int64_t x, int a, int64_t r[6], c
 			r[b] += t; l += t;
 			++p;
 		} while (l < x);
-		for (e = p; e < end && *e>>7; ++e); 
 		q = p - 1;
 		for (p = q; *p>>7; --p);
 	} else {
@@ -381,15 +274,15 @@ int rle_insert1(int block_len, uint8_t *block, int64_t x, int a, int64_t r[6], c
 			else t += *p>>3, l -= t, r[*p&7] -= t, t = 0;
 		} while (l >= x);
 		q = p;
+		b = *p&7;
 		do {
-			if (*q>>7) t = (*q&0x7f) << 4;
-			else t = *q >> 3, b = *q & 7;
+			t = *q>>7? (*q&0x7f) << 4 : *q >> 3;
 			r[b] += t; l += t;
 			++q;
 		} while (l < x);
 		--q;
-		for (e = q + 1; e < end && *e>>7; ++e); 
 	}
+	for (e = q + 1; e < end && *e>>7; ++e); 
 	r[*p&7] -= l - x;
 	if (l == x && q < end - 1 && q[1]>>7 == 0 && (q[1]&7) == a) { // if the next run is an $a run..
 		l += rle_run_len(q), p = ++q;
