@@ -3,11 +3,11 @@
 #include <stdio.h>
 #include "rle6.h"
 
-#if RLE_CODEC == 1
+#if RLE_CODEC == 1 || RLE_CODEC == 4
 
-/******************
- *** 58+3 codec ***
- ******************/
+/**************************
+ *** 58+3 or 43+3 codec ***
+ **************************/
 
 // insert symbol $a after $x symbols in $str; marginal counts added to $cnt; returns the size increase
 int rle_insert_core(int len, uint8_t *str, int64_t x, int a, int64_t rl, int64_t cnt[6], int *m_bytes)
