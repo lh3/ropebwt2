@@ -253,7 +253,7 @@ int rle_insert1(int block_len, uint8_t *block, int64_t x, int a, int64_t r[6], c
 
 	end = block + *nptr;
 	tot = c[0] + c[1] + c[2] + c[3] + c[4] + c[5];
-	if (x < tot>>1) {
+	if (x < tot>>1) { // forward search for the run to insert
 		int b = 0, t;
 		l = 0, p = block;
 		do {
@@ -264,7 +264,7 @@ int rle_insert1(int block_len, uint8_t *block, int64_t x, int a, int64_t r[6], c
 		} while (l < x);
 		q = p - 1;
 		for (p = q; *p>>7; --p);
-	} else {
+	} else { // backward search for the run to insert
 		int b = 0, t = 0;
 		memcpy(r, c, 48);
 		l = tot, p = end;
@@ -275,14 +275,14 @@ int rle_insert1(int block_len, uint8_t *block, int64_t x, int a, int64_t r[6], c
 		} while (l >= x);
 		q = p;
 		b = *p&7;
-		do {
-			t = *q>>7? (*q&0x7f) << 4 : *q >> 3;
+		r[b] += *q >> 3; l += *q++ >> 3;
+		while (l < x) {
+			t = (*q++&0x7f) << 4;
 			r[b] += t; l += t;
-			++q;
-		} while (l < x);
+		}
 		--q;
 	}
-	for (e = q + 1; e < end && *e>>7; ++e); 
+	for (e = q + 1; e < end && *e>>7; ++e); // find the end of the complete run
 	r[*p&7] -= l - x;
 	if (l == x && q < end - 1 && q[1]>>7 == 0 && (q[1]&7) == a) { // if the next run is an $a run..
 		l += rle_run_len(q), p = ++q;
