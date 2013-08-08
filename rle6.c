@@ -3,6 +3,12 @@
 #include <stdio.h>
 #include "rle6.h"
 
+#ifdef __GNUC__
+#define LIKELY(x) __builtin_expect((x),1)
+#else
+#define LIKELY(x) (x)
+#endif
+
 #if RLE_CODEC == 1 || RLE_CODEC == 4
 
 /**************************
@@ -16,14 +22,35 @@ int rle_insert_core(int len, uint8_t *str, int64_t x, int a, int64_t rl, int64_t
 	if (len == 0) {
 		return (*m_bytes = rle_enc(str, a, rl));
 	} else {
-		uint8_t *p = str, *end = str + len;
+		uint8_t *p = str, *end = str + len, *q;
 		int64_t pre, z = 0, l = 0;
 		int c = -1, n_bytes = 0, n_bytes2;
 		uint8_t tmp[24];
+#if RLE_CODEC == 1
 		while (z < x) {
 			n_bytes = rle_dec(p, &c, &l);
 			z += l; p += n_bytes; cnt[c] += l;
 		}
+#else
+		while (z < x) {
+			q = p;
+			c = *p & 7;
+			if (LIKELY((*p&0x80) == 0)) { // 1 byte
+				l = *p++ >> 3;
+			} else if (LIKELY(*p>>5 == 6)) { // 2 bytes
+				l = (*p&0x18L)<<3L | (p[1]&0x7fL);
+				p += 2;
+			} else { // 4 or 8 bytes
+				int i, n = rle_bytes(p);
+				l = (*p&8LL) << (n == 4? 15:39);
+				for (i = 1; i < n; ++i) // slower if unroll the loop!!!
+					l = (l<<6) | (p[i]&0x7f);
+				p += n;
+			}
+			z += l; cnt[c] += l;
+		}
+		n_bytes = p - q;
+#endif
 		if (x == z && a != c && p < end) { // then try the next run
 			int t_bytes, tc;
 			int64_t tl;
