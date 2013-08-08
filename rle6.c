@@ -432,8 +432,12 @@ void rle_split(int block_len, uint8_t *block, uint8_t *new_block)
 void rle_count(int block_len, const uint8_t *block, int64_t cnt[6])
 {
 	uint32_t *nptr = (uint32_t*)(block + block_len - 4);
-	const uint8_t *p = block, *end = p + (*nptr);
-	for (; p != end; ++p) cnt[*p&7] += rle_run_len(p);
+	const uint8_t *p, *end = block + (*nptr);
+	int b;
+	for (p = block, b = 0; p != end; ++p) {
+		if (*p>>7) cnt[b] += (*p&0x7f) << 4;
+		else b = *p&7, cnt[b] += *p>>3;
+	}
 }
 
 #endif
