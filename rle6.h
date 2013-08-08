@@ -27,21 +27,21 @@ extern "C" {
 
 #define RLE_CONST 0x8422000011111111ULL
 #define rle_bytes(_p) (RLE_CONST >> (*(_p)>>4<<2) & 0xf)
-#define rle_runs(len, block) (*(uint32_t*)((block) + (len) - 4) >> 4)
+#define rle_runs(len, block) (*(uint16_t*)((block) + (len) - 2))
 
 // decode one run (c,l) and move the pointer p
 #define rle_dec1(p, c, l) do { \
 		(c) = *(p) & 7; \
 		if (LIKELY((*(p)&0x80) == 0)) { \
 			(l) = *(p)++ >> 3; \
-		} else if (LIKELY(*p>>5 == 6)) { \
+		} else if (LIKELY((*p&0xC0) == 0xC0)) { \
 			(l) = (*(p)&0x18L)<<3L | ((p)[1]&0x7fL); \
 			(p) += 2; \
 		} else { \
 			int i, n = rle_bytes(p); \
-			l = (*(p)&8LL) << (n == 4? 15 : 39); \
+			(l) = (*(p)&8LL) << (n == 4? 15 : 39); \
 			for (i = 1; i < n; ++i) \
-				l = (l<<6) | ((p)[i]&0x7f); \
+				(l) = ((l)<<6) | ((p)[i]&0x7f); \
 			(p) += n; \
 		} \
 	} while (0)
@@ -51,13 +51,13 @@ extern "C" {
 		(c) = *(p) & 7; \
 		if (LIKELY((*(p)&0x80) == 0)) { \
 			(l) = *(p) >> 3; \
-		} else if (LIKELY(*p>>5 == 6)) { \
+		} else if (LIKELY((*p&0xC0) == 0xC0)) { \
 			(l) = (*(p)&0x18L)<<3L | ((p)[1]&0x7fL); \
 		} else { \
 			int i, n = rle_bytes(p); \
-			l = (*(p)&8LL) << (n == 4? 15 : 39); \
+			(l) = (*(p)&8LL) << (n == 4? 15 : 39); \
 			for (i = 1; i < n; ++i) \
-				l = (l<<6) | ((p)[i]&0x7f); \
+				(l) = ((l)<<6) | ((p)[i]&0x7f); \
 		} \
 	} while (0)
 

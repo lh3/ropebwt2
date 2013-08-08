@@ -9,11 +9,11 @@
  ******************/
 
 // insert symbol $a after $x symbols in $str; marginal counts added to $cnt; returns the size increase
-int rle_insert_core(int len, uint8_t *str, int64_t x, int a, int64_t rl, int64_t cnt[6], int *m_bytes)
+int rle_insert_core(int len, uint8_t *str, int64_t x, int a, int64_t rl, int64_t cnt[6])
 {
 	memset(cnt, 0, 48);
 	if (len == 0) {
-		return (*m_bytes = rle_enc(str, a, rl));
+		return rle_enc(str, a, rl);
 	} else {
 		uint8_t *p = str, *end = str + len, *q;
 		int64_t pre, z = 0, l = 0;
@@ -37,13 +37,12 @@ int rle_insert_core(int len, uint8_t *str, int64_t x, int a, int64_t rl, int64_t
 		else cnt[c] -= z - x, pre = x - (z - l), p -= n_bytes;
 		if (a == c) { // insert to the same run
 			n_bytes2 = rle_enc(tmp, c, l + rl);
-			*m_bytes = n_bytes2;
 		} else if (x == z) { // at the end; append to the existing run
 			p += n_bytes; n_bytes = 0;
-			n_bytes2 = *m_bytes = rle_enc(tmp, a, rl);
+			n_bytes2 = rle_enc(tmp, a, rl);
 		} else { // break the current run
 			n_bytes2 = rle_enc(tmp, c, pre);
-			n_bytes2 += (*m_bytes = rle_enc(tmp + n_bytes2, a, rl));
+			n_bytes2 += rle_enc(tmp + n_bytes2, a, rl);
 			n_bytes2 += rle_enc(tmp + n_bytes2, c, l - pre);
 		}
 		if (n_bytes != n_bytes2) // size changed
@@ -53,22 +52,13 @@ int rle_insert_core(int len, uint8_t *str, int64_t x, int a, int64_t rl, int64_t
 	}
 }
 
-void rle_check(int block_len, const uint8_t *block)
-{
-	uint32_t *p = (uint32_t*)(block + block_len - 4);
-	const uint8_t *q = block, *end = block + (*p>>4);
-	while (q < end) q += rle_bytes(q);
-	assert(q == end);
-}
-
-// similar to rle_insert_core(), except that this function updates the total length kept in the last 4 bytes in an RLE block
 int rle_insert(int block_len, uint8_t *block, int64_t x, int a, int64_t rl, int64_t cnt[6], const int64_t end_cnt[6])
 {
-	int m_bytes, diff;
-	uint32_t *p = (uint32_t*)(block + block_len - 4);
-	diff = rle_insert_core(*p>>4, block, x, a, rl, cnt, &m_bytes);
-	*p = ((*p>>4) + diff) << 4 | ((*p&0xf) > m_bytes? (*p&0xf) : m_bytes);
-	return (*p>>4) + 8 + (*p&0xf)*2 > block_len - 7? 1 : 0;
+	int diff;
+	uint16_t *p = (uint16_t*)(block + block_len - 2);
+	diff = rle_insert_core(*p, block, x, a, rl, cnt);
+	*p += diff;
+	return *p + 18 > block_len? 1 : 0;
 }
 
 int rle_insert1(int block_len, uint8_t *block, int64_t x, int a, int64_t cnt[6], const int64_t end_cnt[6])
@@ -78,20 +68,19 @@ int rle_insert1(int block_len, uint8_t *block, int64_t x, int a, int64_t cnt[6],
 
 void rle_split(int block_len, uint8_t *block, uint8_t *new_block)
 {
-	uint32_t *r, *p = (uint32_t*)(block + block_len - 4);
+	uint16_t *r, *p = (uint16_t*)(block + block_len - 2);
 	uint8_t *q = block, *end = block + (*p>>4>>1);
 	while (q < end) q += rle_bytes(q);
-	end = block + (*p>>4);
+	end = block + *p;
 	memcpy(new_block, q, end - q);
-	r = (uint32_t*)(new_block + block_len - 4);
-	*r = (end - q) << 4 | (*p&0xf);
-	*p = (q - block) << 4 | (*p&0xf);
+	r = (uint16_t*)(new_block + block_len - 2);
+	*r = end - q; *p = q - block;
 }
 
 void rle_count(int block_len, const uint8_t *block, int64_t cnt[6])
 {
-	uint32_t *p = (uint32_t*)(block + block_len - 4);
-	const uint8_t *q = block, *end = block + (*p>>4);
+	uint16_t *p = (uint16_t*)(block + block_len - 2);
+	const uint8_t *q = block, *end = block + *p;
 	while (q < end) {
 		int c;
 		int64_t l;
@@ -102,9 +91,9 @@ void rle_count(int block_len, const uint8_t *block, int64_t cnt[6])
 
 void rle_print(int block_len, const uint8_t *block)
 {
-	uint32_t *p = (uint32_t*)(block + block_len - 4);
-	const uint8_t *q = block, *end = block + (*p>>4);
-	printf("%d\t%d\t", *p>>4, *p&0xf);
+	uint16_t *p = (uint16_t*)(block + block_len - 2);
+	const uint8_t *q = block, *end = block;
+	printf("%d\t", *p);
 	while (q < end) {
 		int c;
 		int64_t l;
