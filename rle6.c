@@ -1,5 +1,6 @@
 #include <string.h>
 #include <assert.h>
+#include <stdlib.h>
 #include <stdio.h>
 #include "rle6.h"
 
@@ -9,17 +10,34 @@
  ******************/
 
 // insert symbol $a after $x symbols in $str; marginal counts added to $cnt; returns the size increase
-int rle_insert_core(int len, uint8_t *str, int64_t x, int a, int64_t rl, int64_t cnt[6])
+int rle_insert_core(int len, uint8_t *str, int64_t x, int a, int64_t rl, int64_t cnt[6], const int64_t ec[6])
 {
 	memset(cnt, 0, 48);
 	if (len == 0) {
 		return rle_enc(str, a, rl);
 	} else {
-		uint8_t *p = str, *end = str + len, *q;
-		int64_t pre, z = 0, l = 0;
+		uint8_t *p, *end = str + len, *q;
+		int64_t pre, z, l = 0, tot;
 		int c = -1, n_bytes = 0, n_bytes2;
 		uint8_t tmp[24];
-		while (z < x) {
+		tot = ec[0] + ec[1] + ec[2] + ec[3] + ec[4] + ec[5];
+		if (x <= tot>>1) {
+			z = 0; p = str;
+			while (z < x) {
+				q = p;
+				rle_dec1(p, c, l);
+				z += l; cnt[c] += l;
+			}
+		} else {
+			memcpy(cnt, ec, 48);
+			z = tot; p = end;
+			while (z >= x) {
+				--p;
+				if (*p>>6 != 2) {
+					rle_dec0(p, c, l);
+					z -= l; cnt[c] -= l;
+				}
+			}
 			q = p;
 			rle_dec1(p, c, l);
 			z += l; cnt[c] += l;
@@ -56,7 +74,7 @@ int rle_insert(int block_len, uint8_t *block, int64_t x, int a, int64_t rl, int6
 {
 	int diff;
 	uint16_t *p = (uint16_t*)(block + block_len - 2);
-	diff = rle_insert_core(*p, block, x, a, rl, cnt);
+	diff = rle_insert_core(*p, block, x, a, rl, cnt, end_cnt);
 	*p += diff;
 	return *p + 18 > block_len? 1 : 0;
 }
