@@ -110,7 +110,7 @@ void rle_count(int block_len, const uint8_t *block, int64_t cnt[6])
 void rle_print(int block_len, const uint8_t *block)
 {
 	uint16_t *p = (uint16_t*)(block + block_len - 2);
-	const uint8_t *q = block, *end = block;
+	const uint8_t *q = block, *end = block + *p;
 	printf("%d\t", *p);
 	while (q < end) {
 		int c;

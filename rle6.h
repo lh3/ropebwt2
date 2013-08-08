@@ -34,7 +34,7 @@ extern "C" {
 		(c) = *(p) & 7; \
 		if (LIKELY((*(p)&0x80) == 0)) { \
 			(l) = *(p)++ >> 3; \
-		} else if (LIKELY((*p&0xC0) == 0xC0)) { \
+		} else if (LIKELY(*(p)>>5 == 6)) { \
 			(l) = (*(p)&0x18L)<<3L | ((p)[1]&0x7fL); \
 			(p) += 2; \
 		} else { \
@@ -51,7 +51,7 @@ extern "C" {
 		(c) = *(p) & 7; \
 		if (LIKELY((*(p)&0x80) == 0)) { \
 			(l) = *(p) >> 3; \
-		} else if (LIKELY((*p&0xC0) == 0xC0)) { \
+		} else if (LIKELY(*(p)>>5 == 6)) { \
 			(l) = (*(p)&0x18L)<<3L | ((p)[1]&0x7fL); \
 		} else { \
 			int i, n = rle_bytes(p); \

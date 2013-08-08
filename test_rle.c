@@ -10,12 +10,10 @@ int main(void)
 	int64_t cnt[6], end_cnt[6];
 	memset(block, 0, block_len);
 	memset(end_cnt, 0, 48);
-	for (i = 0; i < 237849; ++i) {
+	for (i = 0; i < 256; ++i) {
 		rle_insert1(block_len, block, 0, 1, cnt, end_cnt);
 		++end_cnt[1];
 	}
-//	rle_insert1(block_len, block, 1998, 1, cnt, end_cnt);
-//	++end_cnt[1];
 	rle_print(block_len, block);
 
 /*
