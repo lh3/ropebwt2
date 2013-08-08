@@ -282,12 +282,10 @@ int rle_insert1(int block_len, uint8_t *block, int64_t x, int a, int64_t r[6], c
 		}
 		--q;
 	}
-	for (e = q + 1; e < end && *e>>7; ++e); // find the end of the complete run
 	r[*p&7] -= l - x;
-	if (l == x && q < end - 1 && q[1]>>7 == 0 && (q[1]&7) == a) { // if the next run is an $a run..
+	if (l == x && q < end - 1 && q[1]>>7 == 0 && (q[1]&7) == a) // if the next run is an $a run..
 		l += rle_run_len(q), p = ++q;
-		for (e = p + 1; e < end && *e>>7; ++e); 
-	}
+	for (e = q + 1; e < end && *e>>7; ++e); // find the end of the complete run
 	--e;
 
 	if ((*p&7) == a) {
