@@ -20,7 +20,7 @@ int rle_insert_core(int len, uint8_t *str, int64_t x, int a, int64_t rl, int64_t
 		int c = 0, n_bytes = 0, n_bytes2;
 		uint8_t tmp[24];
 		tot = ec[0] + ec[1] + ec[2] + ec[3] + ec[4] + ec[5];
-		if (1 || x <= tot>>1) {
+		if (x <= tot>>1) {
 			z = 0; p = str;
 			while (z < x) {
 				rle_dec1(p, c, l);
@@ -28,6 +28,19 @@ int rle_insert_core(int len, uint8_t *str, int64_t x, int a, int64_t rl, int64_t
 			}
 			for (q = p - 1; *q>>6 == 2; --q);
 		} else {
+			memcpy(cnt, ec, 48);
+            z = tot; p = end;
+			while (z >= x) {
+				--p;
+				if (*p>>6 != 2) {
+					l = *p>>7? l<<3|(*p>>3&7) : *p>>3;
+					z -= l; cnt[*p&7] -= l;
+					l = 0;
+				} else l = l<<6 | (*p&0x3f);
+			}
+			q = p;
+			rle_dec1(p, c, l);
+			z += l; cnt[c] += l;
 		}
 		n_bytes = p - q;
 		if (x == z && a != c && p < end) { // then try the next run
