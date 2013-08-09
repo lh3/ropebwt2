@@ -46,21 +46,6 @@ extern "C" {
 		} \
 	} while (0)
 
-// similar to rle_dec1() except that it does not change p
-#define rle_dec0(p, c, l) do { \
-		(c) = *(p) & 7; \
-		if (LIKELY((*(p)&0x80) == 0)) { \
-			(l) = *(p) >> 3; \
-		} else if (LIKELY(*(p)>>5 == 6)) { \
-			(l) = (*(p)&0x18L)<<3L | ((p)[1]&0x7fL); \
-		} else { \
-			int i, n = rle_bytes(p); \
-			(l) = (*(p)&8LL) << (n == 4? 15 : 39); \
-			for (i = 1; i < n; ++i) \
-				(l) = ((l)<<6) | ((p)[i]&0x7f); \
-		} \
-	} while (0)
-
 static inline int rle_enc(uint8_t *p, int c, int64_t l)
 {
 	if (l < 1LL<<4) {

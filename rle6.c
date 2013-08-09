@@ -19,18 +19,11 @@ int rle_insert_core(int len, uint8_t *str, int64_t x, int a, int64_t rl, int64_t
 	} else {
 		uint8_t *p, *end = str + len, *q;
 		int64_t pre, z, l = 0, tot;
-		int c = -1, n_bytes = 0, n_bytes2;
+		int c = -1, n_bytes = 0, n_bytes2, t = 0;
 		uint8_t tmp[24];
 		tot = ec[0] + ec[1] + ec[2] + ec[3] + ec[4] + ec[5];
-		if (x <= tot>>1) {
+		if (x <= tot>>1) { // forward
 			z = 0; p = str;
-#if 0
-			while (z < x) {
-				rle_dec1(p, c, l);
-				z += l; cnt[c] += l;
-			}
-#else
-			int t = 0;
 			while (z < x) {
 				if (*p>>7 == 0) {
 					c = *p & 7;
@@ -42,27 +35,17 @@ int rle_insert_core(int len, uint8_t *str, int64_t x, int a, int64_t rl, int64_t
 					l = t >> 4;
 					t &= 0xf;
 				} else {
+					int64_t s;
 					l = l<<6 | (*p&0x3fL);
-					if (--t == 0)
-						z += l, cnt[c] += l;
+					s = --t? 0 : l;
+					z += s; cnt[c] += s;
 				}
 				++p;
 			}
-#endif	
 			for (q = p - 1; *q>>6 == 2; --q);
-		} else {
+		} else { // backward
 			memcpy(cnt, ec, 48);
 			z = tot; p = end;
-#if 0
-			while (z >= x) {
-				--p;
-				if (*p>>6 != 2) {
-					rle_dec0(p, c, l);
-					z -= l; cnt[c] -= l;
-				}
-			}
-#else
-			int t;
 			while (z >= x) {
 				--p;
 				if (*p>>6 != 2) {
@@ -74,7 +57,6 @@ int rle_insert_core(int len, uint8_t *str, int64_t x, int a, int64_t rl, int64_t
 					t += 6;
 				}
 			}
-#endif
 			q = p;
 			rle_dec1(p, c, l);
 			z += l; cnt[c] += l;
