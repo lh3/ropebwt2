@@ -4,8 +4,6 @@
 #include <stdio.h>
 #include "rle6.h"
 
-// #define RLE_ALT_FORWARD
-
 const uint8_t rle_auxtab[8] = { 0x01, 0x11, 0x21, 0x31, 0x03, 0x13, 0x07, 0x17 };
 
 // insert symbol $a after $x symbols in $str; marginal counts added to $cnt; returns the size increase
@@ -23,35 +21,15 @@ int rle_insert(int block_len, uint8_t *block, int64_t x, int a, int64_t rl, int6
 		int c = -1, n_bytes = 0, n_bytes2, t = 0;
 		uint8_t tmp[24];
 		tot = ec[0] + ec[1] + ec[2] + ec[3] + ec[4] + ec[5];
-		if (x <= tot>>1) { // forward
+		if (x == 0) {
+			p = q = block; z = 0;
+		} else if (x <= tot>>1) { // forward
 			z = 0; p = block;
-#ifndef RLE_ALT_FORWARD
 			while (z < x) {
 				rle_dec1(p, c, l);
 				z += l; cnt[c] += l;
 			}
-#else
-			while (z < x) {
-				if (LIKELY(*p>>7 == 0)) {
-					c = *p & 7;
-					l = *p >> 3;
-					z += l; cnt[c] += l;
-				} else if (*p>>6 != 2) {
-					c = *p & 7;
-					t = rle_auxtab[*p>>3&7];
-					l = t >> 4;
-					t &= 0xf;
-				} else {
-					int64_t s;
-					l = l<<6 | (*p&0x3fL);
-					s = --t? 0 : l;
-					z += s; cnt[c] += s;
-				}
-				++p;
-			}
-#endif
-			if (x) for (q = p - 1; *q>>6 == 2; --q);
-			else q = p;
+			for (q = p - 1; *q>>6 == 2; --q);
 		} else { // backward
 			memcpy(cnt, ec, 48);
 			z = tot; p = end;
@@ -79,8 +57,8 @@ int rle_insert(int block_len, uint8_t *block, int64_t x, int a, int64_t rl, int6
 			if (a == tc)
 				c = tc, n_bytes = q - p, l = tl, z += l, p = q, cnt[tc] += tl;
 		}
-		if (c < 0) c = a, l = 0, pre = 0; // in this case, x==0 and the next run is different from $a
-		else cnt[c] -= z - x, pre = x - (z - l), p -= n_bytes;
+		if (z != x) cnt[c] -= z - x;
+		pre = x - (z - l); p -= n_bytes;
 		if (a == c) { // insert to the same run
 			n_bytes2 = rle_enc1(tmp, c, l + rl);
 		} else if (x == z) { // at the end; append to the existing run
