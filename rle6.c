@@ -11,7 +11,7 @@ const uint8_t rle_auxtab[8] = { 0x01, 0x11, 0x21, 0x31, 0x03, 0x13, 0x07, 0x17 }
 // insert symbol $a after $x symbols in $str; marginal counts added to $cnt; returns the size increase
 int rle_insert(int block_len, uint8_t *block, int64_t x, int a, int64_t rl, int64_t cnt[6], const int64_t ec[6])
 {
-	uint16_t *nptr = (uint16_t*)(block + block_len - 2);
+	uint16_t *nptr = rle_nptr(block_len, block);
 	int diff;
 
 	memset(cnt, 0, 48);
@@ -101,17 +101,17 @@ int rle_insert(int block_len, uint8_t *block, int64_t x, int a, int64_t rl, int6
 
 void rle_split(int block_len, uint8_t *block, uint8_t *new_block)
 {
-	uint16_t *r, *p = (uint16_t*)(block + block_len - 2);
+	uint16_t *r, *p = rle_nptr(block_len, block);
 	uint8_t *end = block + *p, *q = block + (*p>>4>>1);
 	while (*q>>6 == 2) --q;
 	memcpy(new_block, q, end - q);
-	r = (uint16_t*)(new_block + block_len - 2);
+	r = rle_nptr(block_len, new_block);
 	*r = end - q; *p = q - block;
 }
 
 void rle_count(int block_len, const uint8_t *block, int64_t cnt[6])
 {
-	const uint8_t *q = block, *end = q + rle_runs(block_len, block);
+	const uint8_t *q = block, *end = q + *rle_nptr(block_len, block);
 	while (q < end) {
 		int c;
 		int64_t l;
@@ -122,7 +122,7 @@ void rle_count(int block_len, const uint8_t *block, int64_t cnt[6])
 
 void rle_print(int block_len, const uint8_t *block)
 {
-	uint16_t *p = (uint16_t*)(block + block_len - 2);
+	uint16_t *p = rle_nptr(block_len, block);
 	const uint8_t *q = block, *end = block + *p;
 	printf("%d\t", *p);
 	while (q < end) {

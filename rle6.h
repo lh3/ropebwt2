@@ -27,7 +27,7 @@ extern "C" {
 
 const uint8_t rle_auxtab[8];
 
-#define rle_runs(len, block) (*(uint16_t*)((block) + (len) - 2))
+#define rle_nptr(len, block) ((uint16_t*)((block) + (len) - 2))
 
 // decode one run (c,l) and move the pointer p
 #define rle_dec1(p, c, l) do { \

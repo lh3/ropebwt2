@@ -94,7 +94,7 @@ int main(int argc, char *argv[])
 		const uint8_t *block;
 		itr = r6_itr_init(r6);
 		while ((block = r6_itr_next(itr, &len)) != 0) {
-			const uint8_t *q = block, *end = block + rle_runs(block, len);
+			const uint8_t *q = block, *end = block + *rle_nptr(len, block);
 			while (q < end) {
 				int c = 0;
 				int64_t j, l;
