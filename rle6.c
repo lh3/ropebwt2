@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include "rle6.h"
 
-const uint8_t rle_auxtab[] = { 0<<4|1, 1<<4|1, 2<<4|1, 3<<4|1, 0<<4|3, 1<<4|3, 0<<4|7, 1<<4|7 };
+const uint8_t rle_auxtab[] = { 0x01, 0x11, 0x21, 0x31, 0x03, 0x13, 0x07, 0x17 };
 
 /******************
  *** 43+3 codec ***
