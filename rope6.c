@@ -146,7 +146,7 @@ int64_t r6_insert_symbol(rope6_t *rope, int a, int64_t x)
 		v = p; p = p->p; // descend
 	} while (!u->is_bottom);
 	++rope->c[a]; // $rope->c should be updated after the loop as adding a new root needs the old $rope->c counts
-	is_split = rle_insert1(rope->block_len, (uint8_t*)p, x - y, a, cnt, v->c);
+	is_split = rle_insert(rope->block_len, (uint8_t*)p, x - y, a, 1, cnt, v->c);
 	z += cnt[a] + 1;
 	++v->c[a]; ++v->l; // this should be below rle_insert(); otherwise it won't work
 	if (is_split) split_node(rope, u, v);
