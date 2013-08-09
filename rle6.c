@@ -21,24 +21,11 @@ int rle_insert_core(int len, uint8_t *str, int64_t x, int a, int64_t rl, int64_t
 		uint8_t tmp[24];
 		tot = ec[0] + ec[1] + ec[2] + ec[3] + ec[4] + ec[5];
 		if (1 || x <= tot>>1) {
-			int t;
 			z = 0; p = str;
-			l = *p>>7? *p>>3&7 : *p>>3; t = 3; c = *p++ & 7;
-			while (p != end) {
-				if (*p>>6 != 2) {
-					z += l, cnt[c] += l;
-					if (z >= x) break;
-					c = *p & 7;
-					l = *p>>7? *p>>3&7 : *p>>3;
-					t = 3;
-				} else {
-					l |= (*p&0x3fLL) << t;
-					t += 6;
-				}
-				++p;
+			while (z < x) {
+				rle_dec1(p, c, l);
+				z += l; cnt[c] += l;
 			}
-			if (p == end) z += l, cnt[c] += l;
-			assert(z >= x && z == cnt[0] + cnt[1] + cnt[2] + cnt[3] + cnt[4] + cnt[5]);
 			for (q = p - 1; *q>>6 == 2; --q);
 		} else {
 		}
@@ -47,7 +34,7 @@ int rle_insert_core(int len, uint8_t *str, int64_t x, int a, int64_t rl, int64_t
 			int tc;
 			int64_t tl;
 			q = p;
-			rle_dec1(q, end, tc, tl);
+			rle_dec1(q, tc, tl);
 			if (a == tc)
 				c = tc, n_bytes = q - p, l = tl, z += l, p = q, cnt[tc] += tl;
 		}

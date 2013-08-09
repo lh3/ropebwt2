@@ -48,14 +48,14 @@ extern "C" {
 		} \
 	} while (0)
 
-#define rle_dec1(p, end, c, l) do { \
+#define rle_dec1(p, c, l) do { \
 		c = *p & 7; \
 		if (*p>>7 == 0) { \
 			l = *p++ >> 3; \
 		} else { \
 			int t = 3; \
 			l = *p++ >> 3 & 7; \
-			while (p != end && *p>>6 == 2) \
+			while (*p>>6 == 2) \
 				l |= (*p++ & 0x3fLL) << t; \
 		} \
 	} while (0)
