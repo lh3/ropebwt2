@@ -36,13 +36,13 @@ const uint8_t rle_auxtab[8];
 		if (LIKELY((*(p)&0x80) == 0)) { \
 			(l) = *(p)++ >> 3; \
 		} else if (LIKELY(*(p)>>5 == 6)) { \
-			(l) = (*(p)&0x18L)<<3L | ((p)[1]&0x7fL); \
+			(l) = (*(p)&0x18L)<<3L | ((p)[1]&0x3fL); \
 			(p) += 2; \
 		} else { \
 			int i, n = *(p)>>4 == 0xe? 4 : 8; \
 			(l) = (*(p)&8LL) << (n == 4? 15 : 39); \
 			for (i = 1; i < n; ++i) \
-				(l) = ((l)<<6) | ((p)[i]&0x7f); \
+				(l) = ((l)<<6) | ((p)[i]&0x3fL); \
 			(p) += n; \
 		} \
 	} while (0)
@@ -63,11 +63,10 @@ static inline int rle_enc1(uint8_t *p, int c, int64_t l)
 		p[3] = 0x80 | (l & 0x3f);
 		return 4;
 	} else {
-		int i;
-		uint64_t mask = 0x3FULL << 36;
+		int i, shift = 36;
 		*p = 0xF0 | l >> 42 << 3 | c;
-		for (i = 1; i < 8; ++i, mask >>= 6)
-			p[i] = 0x80 | (l & mask);
+		for (i = 1; i < 8; ++i, shift -= 6)
+			p[i] = 0x80 | (l>>shift & 0x3f);
 		return 8;
 	}
 }
