@@ -166,6 +166,57 @@ void r6_insert_string_io(rope6_t *rope, int l, uint8_t *str)
 	r6_insert_string_core(rope, l, str, rope->c[0]);
 }
 
+void r6_rank1a(const rope6_t *rope, int64_t x, int64_t ok[6])
+{ // on return: ok[c] = |{i<x && a<c:B[i]=c}|; note that it is "i<x" not "i<=x"
+	node_t *u, *v = 0, *p = rope->root;
+	int64_t y = 0;
+	int a;
+
+	memset(ok, 0, 48);
+	do {
+		u = p;
+		if (v && x - y > v->l>>1) {
+			p += p->n - 1; y += v->l;
+			for (a = 0; a < 6; ++a) ok[a] += v->c[a];
+			for (; y >= x; --p) {
+				y -= p->l;
+				for (a = 0; a < 6; ++a) ok[a] -= p->c[a];
+			}
+			++p;
+		} else {
+			for (; y + p->l < x; ++p) {
+				y += p->l;
+				for (a = 0; a < 6; ++a) ok[a] += p->c[a];
+			}
+		}
+		v = p; p = p->p;
+	} while (!u->is_bottom);
+	assert(x >= y);
+	rle_rank1a(rope->block_len, (const uint8_t*)p, x - y, ok, v->c);
+}
+
+void r6_insert_string_rlo(rope6_t *rope, int len, uint8_t *str)
+{
+	int64_t tl[6], tu[6], l, u;
+	l = 0; u = rope->c[0];
+	while (--len >= 0) {
+		int a, c = str[len];
+		r6_rank1a(rope, l, tl);
+		r6_rank1a(rope, u, tu);
+		for (a = 0; a < c; ++a) l += tu[a] - tl[a];
+		if (tl[c] < tu[c]) {
+			int64_t cnt;
+			r6_insert_symbol(rope, c, l);
+			for (a = 0, cnt = 0; a < c; ++a) cnt += rope->c[a];
+			l = cnt + tl[c] + 1; u = cnt + tu[c] + 1;
+		} else {
+			r6_insert_string_core(rope, len+1, str, l);
+			return;
+		}
+	}
+	r6_insert_symbol(rope, 0, l);
+}
+
 /*********************
  *** Rope iterator ***
  *********************/

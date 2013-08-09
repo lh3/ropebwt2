@@ -41,6 +41,7 @@ int main(int argc, char *argv[])
 		else if (c == 'O') flag &= ~FLAG_ODD;
 		else if (c == 'T') flag |= FLAG_TREE;
 		else if (c == 'b') flag |= FLAG_BIN;
+		else if (c == 's') flag |= FLAG_RLO;
 		else if (c == 'l') block_len = atoi(optarg);
 		else if (c == 'n') max_nodes= atoi(optarg);
 
@@ -54,8 +55,7 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "         -s         build BWT in RLO\n");
 		fprintf(stderr, "         -F         skip forward strand\n");
 		fprintf(stderr, "         -R         skip reverse strand\n");
-		fprintf(stderr, "         -O         suppress end trimming when forward==reverse\n");
-		fprintf(stderr, "         -T         print the tree stdout (bpr and rbr only)\n\n");
+		fprintf(stderr, "         -O         suppress end trimming when forward==reverse\n\n");
 		return 1;
 	}
 
@@ -72,8 +72,10 @@ int main(int argc, char *argv[])
 				if (s[i] + s[l-1-i] != 5) break;
 			if (i == l>>1) --l; // if so, trim 1bp from the end
 		}
-		if (flag & FLAG_FOR)
-			r6_insert_string_io(r6, ks->seq.l, s);
+		if (flag & FLAG_FOR) {
+			if (flag & FLAG_RLO) r6_insert_string_rlo(r6, ks->seq.l, s);
+			else r6_insert_string_io(r6, ks->seq.l, s);
+		}
 		if (flag & FLAG_REV) {
 			for (i = 0; i < l>>1; ++i) {
 				int tmp = s[l-1-i];
@@ -82,7 +84,8 @@ int main(int argc, char *argv[])
 				s[i] = tmp;
 			}
 			if (l&1) s[i] = (s[i] >= 1 && s[i] <= 4)? 5 - s[i] : s[i];
-			r6_insert_string_io(r6, ks->seq.l, s);
+			if (flag & FLAG_RLO) r6_insert_string_rlo(r6, ks->seq.l, s);
+			else r6_insert_string_io(r6, ks->seq.l, s);
 		}
 	}
 	kseq_destroy(ks);

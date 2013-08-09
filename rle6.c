@@ -50,7 +50,8 @@ int rle_insert(int block_len, uint8_t *block, int64_t x, int a, int64_t rl, int6
 				++p;
 			}
 #endif
-			for (q = p - 1; *q>>6 == 2; --q);
+			if (x) for (q = p - 1; *q>>6 == 2; --q);
+			else q = p;
 		} else { // backward
 			memcpy(cnt, ec, 48);
 			z = tot; p = end;
@@ -132,4 +133,38 @@ void rle_print(int block_len, const uint8_t *block)
 		printf("%c%ld", "$ACGTN"[c], (long)l);
 	}
 	putchar('\n');
+}
+
+void rle_rank1a(int block_len, const uint8_t *block, int64_t x, int64_t cnt[6], const int64_t ec[6])
+{
+	int64_t tot, z, l;
+	int c;
+	const uint8_t *p;
+
+	if (x == 0) return;
+	tot = ec[0] + ec[1] + ec[2] + ec[3] + ec[4] + ec[5];
+	if (x <= tot>>1) {
+		z = 0; p = block;
+		while (z < x) {
+			rle_dec1(p, c, l);
+			z += l; cnt[c] += l;
+		}
+		cnt[c] -= z - x;
+	} else {
+		int t = 0;
+		for (c = 0; c != 6; ++c) cnt[c] += ec[c];
+		z = tot; l = 0; p = block + *rle_nptr(block_len, block);
+		while (z >= x) {
+			--p;
+			if (*p>>6 != 2) {
+				l |= *p>>7? (int64_t)rle_auxtab[*p>>3&7]>>4 << t : *p>>3;
+				z -= l; cnt[*p&7] -= l;
+				l = 0; t = 0;
+			} else {
+				l |= (*p&0x3fL) << t;
+				t += 6;
+			}
+		}
+		cnt[*p&7] += x - z;
+	}
 }

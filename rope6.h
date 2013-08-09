@@ -16,6 +16,7 @@ extern "C" {
 	rope6_t *r6_init(int max_nodes, int block_len);
 	void r6_destroy(rope6_t *rope);
 	void r6_insert_string_io(rope6_t *rope, int l, uint8_t *str);
+	void r6_insert_string_rlo(rope6_t *rope, int len, uint8_t *str);
 
 	r6itr_t *r6_itr_init(const rope6_t *rope);
 	const uint8_t *r6_itr_next(r6itr_t *i, int *n);
