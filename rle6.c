@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include "rle6.h"
 
+const uint8_t rle_auxtab[] = { 0<<4|1, 1<<4|1, 2<<4|1, 3<<4|1, 0<<4|3, 1<<4|3, 0<<4|7, 1<<4|7 };
 
 /******************
  *** 43+3 codec ***
@@ -23,14 +24,36 @@ int rle_insert_core(int len, uint8_t *str, int64_t x, int a, int64_t rl, int64_t
 		tot = ec[0] + ec[1] + ec[2] + ec[3] + ec[4] + ec[5];
 		if (x <= tot>>1) {
 			z = 0; p = str;
+#if 0
 			while (z < x) {
 				rle_dec1(p, c, l);
 				z += l; cnt[c] += l;
 			}
+#else
+			int t = 0;
+			while (z < x) {
+				if (*p>>7 == 0) {
+					c = *p & 7;
+					l = *p >> 3;
+					z += l; cnt[c] += l;
+				} else if (*p>>6 != 2) {
+					c = *p & 7;
+					t = rle_auxtab[*p>>3&7];
+					l = t >> 4;
+					t &= 0xf;
+				} else {
+					l = l<<6 | (*p&0x3fL);
+					if (--t == 0)
+						z += l, cnt[c] += l;
+				}
+				++p;
+			}
+#endif	
 			for (q = p - 1; *q>>6 == 2; --q);
 		} else {
 			memcpy(cnt, ec, 48);
 			z = tot; p = end;
+#if 0
 			while (z >= x) {
 				--p;
 				if (*p>>6 != 2) {
@@ -38,6 +61,20 @@ int rle_insert_core(int len, uint8_t *str, int64_t x, int a, int64_t rl, int64_t
 					z -= l; cnt[c] -= l;
 				}
 			}
+#else
+			int t;
+			while (z >= x) {
+				--p;
+				if (*p>>6 != 2) {
+					l |= *p>>7? (int64_t)rle_auxtab[*p>>3&7]>>4 << t : *p>>3;
+					z -= l; cnt[*p&7] -= l;
+					l = 0; t = 0;
+				} else {
+					l |= (*p&0x3fL) << t;
+					t += 6;
+				}
+			}
+#endif
 			q = p;
 			rle_dec1(p, c, l);
 			z += l; cnt[c] += l;
