@@ -4,7 +4,9 @@
 #include <stdio.h>
 #include "rle6.h"
 
-const uint8_t rle_auxtab[] = { 0x01, 0x11, 0x21, 0x31, 0x03, 0x13, 0x07, 0x17 };
+// #define RLE_ALT_FORWARD
+
+const uint8_t rle_auxtab[8] = { 0x01, 0x11, 0x21, 0x31, 0x03, 0x13, 0x07, 0x17 };
 
 /******************
  *** 43+3 codec ***
@@ -15,7 +17,7 @@ int rle_insert_core(int len, uint8_t *str, int64_t x, int a, int64_t rl, int64_t
 {
 	memset(cnt, 0, 48);
 	if (len == 0) {
-		return rle_enc(str, a, rl);
+		return rle_enc1(str, a, rl);
 	} else {
 		uint8_t *p, *end = str + len, *q;
 		int64_t pre, z, l = 0, tot;
@@ -24,8 +26,14 @@ int rle_insert_core(int len, uint8_t *str, int64_t x, int a, int64_t rl, int64_t
 		tot = ec[0] + ec[1] + ec[2] + ec[3] + ec[4] + ec[5];
 		if (x <= tot>>1) { // forward
 			z = 0; p = str;
+#ifndef RLE_ALT_FORWARD
 			while (z < x) {
-				if (*p>>7 == 0) {
+				rle_dec1(p, c, l);
+				z += l; cnt[c] += l;
+			}
+#else
+			while (z < x) {
+				if (LIKELY(*p>>7 == 0)) {
 					c = *p & 7;
 					l = *p >> 3;
 					z += l; cnt[c] += l;
@@ -42,6 +50,7 @@ int rle_insert_core(int len, uint8_t *str, int64_t x, int a, int64_t rl, int64_t
 				}
 				++p;
 			}
+#endif
 			for (q = p - 1; *q>>6 == 2; --q);
 		} else { // backward
 			memcpy(cnt, ec, 48);
@@ -73,16 +82,16 @@ int rle_insert_core(int len, uint8_t *str, int64_t x, int a, int64_t rl, int64_t
 		if (c < 0) c = a, l = 0, pre = 0; // in this case, x==0 and the next run is different from $a
 		else cnt[c] -= z - x, pre = x - (z - l), p -= n_bytes;
 		if (a == c) { // insert to the same run
-			n_bytes2 = rle_enc(tmp, c, l + rl);
+			n_bytes2 = rle_enc1(tmp, c, l + rl);
 		} else if (x == z) { // at the end; append to the existing run
 			p += n_bytes; n_bytes = 0;
-			n_bytes2 = rle_enc(tmp, a, rl);
+			n_bytes2 = rle_enc1(tmp, a, rl);
 		} else { // break the current run
-			n_bytes2 = rle_enc(tmp, c, pre);
-			n_bytes2 += rle_enc(tmp + n_bytes2, a, rl);
-			n_bytes2 += rle_enc(tmp + n_bytes2, c, l - pre);
+			n_bytes2 = rle_enc1(tmp, c, pre);
+			n_bytes2 += rle_enc1(tmp + n_bytes2, a, rl);
+			n_bytes2 += rle_enc1(tmp + n_bytes2, c, l - pre);
 		}
-		if (n_bytes != n_bytes2) // size changed
+		if (n_bytes != n_bytes2 && end != p + n_bytes) // size changed
 			memmove(p + n_bytes2, p + n_bytes, end - p - n_bytes);
 		memcpy(p, tmp, n_bytes2);
 		return n_bytes2 - n_bytes;
@@ -106,9 +115,8 @@ int rle_insert1(int block_len, uint8_t *block, int64_t x, int a, int64_t cnt[6],
 void rle_split(int block_len, uint8_t *block, uint8_t *new_block)
 {
 	uint16_t *r, *p = (uint16_t*)(block + block_len - 2);
-	uint8_t *q = block, *end = block + (*p>>4>>1);
-	while (q < end) q += rle_bytes(q);
-	end = block + *p;
+	uint8_t *end = block + *p, *q = block + (*p>>4>>1);
+	while (*q>>6 == 2) --q;
 	memcpy(new_block, q, end - q);
 	r = (uint16_t*)(new_block + block_len - 2);
 	*r = end - q; *p = q - block;

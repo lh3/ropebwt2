@@ -25,8 +25,8 @@ extern "C" {
  *** 43+3 codec ***
  ******************/
 
-#define RLE_CONST 0x8422000011111111ULL
-#define rle_bytes(_p) (RLE_CONST >> (*(_p)>>4<<2) & 0xf)
+const uint8_t rle_auxtab[8];
+
 #define rle_runs(len, block) (*(uint16_t*)((block) + (len) - 2))
 
 // decode one run (c,l) and move the pointer p
@@ -38,7 +38,7 @@ extern "C" {
 			(l) = (*(p)&0x18L)<<3L | ((p)[1]&0x7fL); \
 			(p) += 2; \
 		} else { \
-			int i, n = rle_bytes(p); \
+			int i, n = *(p)>>4 == 0xe? 4 : 8; \
 			(l) = (*(p)&8LL) << (n == 4? 15 : 39); \
 			for (i = 1; i < n; ++i) \
 				(l) = ((l)<<6) | ((p)[i]&0x7f); \
@@ -46,7 +46,7 @@ extern "C" {
 		} \
 	} while (0)
 
-static inline int rle_enc(uint8_t *p, int c, int64_t l)
+static inline int rle_enc1(uint8_t *p, int c, int64_t l)
 {
 	if (l < 1LL<<4) {
 		*p = l << 3 | c;
