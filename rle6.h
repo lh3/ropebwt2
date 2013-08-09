@@ -40,7 +40,7 @@ const uint8_t rle_auxtab[8];
 			(p) += 2; \
 		} else { \
 			int i, n = *(p)>>4 == 0xe? 4 : 8; \
-			(l) = (*(p)&8LL) << (n == 4? 15 : 39); \
+			(l) = *(p) >> 3 & 1; \
 			for (i = 1; i < n; ++i) \
 				(l) = ((l)<<6) | ((p)[i]&0x3fL); \
 			(p) += n; \

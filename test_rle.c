@@ -13,8 +13,7 @@ int main(void)
 	uint8_t block[512];
 	int64_t cnt[6], end_cnt[6];
 	memset(block, 0, block_len);
-	rle_insert2(block_len, block, 0, 3, 1000000, cnt, end_cnt);
-	rle_insert2(block_len, block, 800000, 2, 10000, cnt, end_cnt);
+	rle_insert2(block_len, block, 0, 3, 1<<18|1, cnt, end_cnt);
 	rle_print(block_len, block);
 	return 0;
 }
