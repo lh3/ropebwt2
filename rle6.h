@@ -56,7 +56,7 @@ extern "C" {
 			int t = 3; \
 			l = *p++ >> 3 & 7; \
 			while (*p>>6 == 2) \
-				l |= (*p++ & 0x3fLL) << t; \
+				l |= (*p++ & 0x3fLL) << t, t += 6; \
 		} \
 	} while (0)
 
