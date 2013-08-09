@@ -25,64 +25,55 @@ extern "C" {
  *** 43+3 codec ***
  ******************/
 
-#define RLE_CONST 0x8422000011111111ULL
-#define rle_bytes(_p) (RLE_CONST >> (*(_p)>>4<<2) & 0xf)
 #define rle_runs(len, block) (*(uint16_t*)((block) + (len) - 2))
 
-// decode one run (c,l) and move the pointer p
-#define rle_dec1(p, c, l) do { \
-		(c) = *(p) & 7; \
-		if (LIKELY((*(p)&0x80) == 0)) { \
-			(l) = *(p)++ >> 3; \
-		} else if (LIKELY(*(p)>>5 == 6)) { \
-			(l) = (*(p)&0x18L)<<3L | ((p)[1]&0x7fL); \
-			(p) += 2; \
-		} else { \
-			int i, n = rle_bytes(p); \
-			(l) = (*(p)&8LL) << (n == 4? 15 : 39); \
-			for (i = 1; i < n; ++i) \
-				(l) = ((l)<<6) | ((p)[i]&0x7f); \
-			(p) += n; \
+#define rle_traverse(p, end, func) do { \
+		if (p != (end)) { \
+			int c = *p & 7, t = 3; \
+			int64_t l = *p>>7? *p>>3&7 : *p>>3; \
+			++p; \
+			while (p != (end)) { \
+				if (*p>>6 != 2) { \
+					func(c, l); \
+					c = *p & 7; \
+					l = *p>>7? *p>>3&7 : *p>>3; \
+					t = 3; \
+				} else { \
+					l |= (*p&0x3fLL) << t; \
+					t += 6; \
+				} \
+				++p; \
+			} \
+			func(c, l); \
 		} \
 	} while (0)
 
-// similar to rle_dec1() except that it does not change p
-#define rle_dec0(p, c, l) do { \
-		(c) = *(p) & 7; \
-		if (LIKELY((*(p)&0x80) == 0)) { \
-			(l) = *(p) >> 3; \
-		} else if (LIKELY(*(p)>>5 == 6)) { \
-			(l) = (*(p)&0x18L)<<3L | ((p)[1]&0x7fL); \
+#define rle_dec1(p, end, c, l) do { \
+		c = *p & 7; \
+		if (*p>>7 == 0) { \
+			l = *p++ >> 3; \
 		} else { \
-			int i, n = rle_bytes(p); \
-			(l) = (*(p)&8LL) << (n == 4? 15 : 39); \
-			for (i = 1; i < n; ++i) \
-				(l) = ((l)<<6) | ((p)[i]&0x7f); \
+			int t = 3; \
+			l = *p++ >> 3 & 7; \
+			while (p != end && *p>>6 == 2) \
+				l |= (*p++ & 0x3fLL) << t; \
 		} \
 	} while (0)
 
-static inline int rle_enc(uint8_t *p, int c, int64_t l)
+static inline int rle_enc1(uint8_t *p, int c, int64_t l)
 {
 	if (l < 1LL<<4) {
 		*p = l << 3 | c;
 		return 1;
-	} else if (l < 1LL<<8) {
-		*p = 0xC0 | l >> 6 << 3 | c;
-		p[1] = 0x80 | (l & 0x3f);
+	} else if (l < 1LL<<9) {
+		*p++ = 0xC0 | (l&7)<<3 | c;
+		*p = 0x80 | l>>3;
 		return 2;
-	} else if (l < 1LL<<19) {
-		*p = 0xE0 | l >> 18 << 3 | c;
-		p[1] = 0x80 | (l >> 12 & 0x3f);
-		p[2] = 0x80 | (l >> 6 & 0x3f);
-		p[3] = 0x80 | (l & 0x3f);
-		return 4;
 	} else {
-		int i;
-		uint64_t mask = 0x3FULL << 36;
-		*p = 0xF0 | l >> 42 << 3 | c;
-		for (i = 1; i < 8; ++i, mask >>= 6)
-			p[i] = 0x80 | (l & mask);
-		return 8;
+		uint8_t *p0 = p;
+		*p++ = 0xC0 | (l&7)<<3 | c;
+		for (l >>= 3; l; l >>= 6) *p++ = 0x80 | (l&0x3f);
+		return p - p0;
 	}
 }
 

@@ -94,13 +94,13 @@ int main(int argc, char *argv[])
 		const uint8_t *block;
 		itr = r6_itr_init(r6);
 		while ((block = r6_itr_next(itr, &len)) != 0) {
-			const uint8_t *q = block, *end = block + rle_runs(block, len);
-			while (q < end) {
-				int c = 0;
-				int64_t j, l;
-				rle_dec1(q, c, l);
-				for (j = 0; j < l; ++j) putchar("$ACGTN"[c]);
-			}
+			const uint8_t *end = block + rle_runs(block, len);
+			#define func(c, l) do { \
+					int64_t j; \
+					for (j = 0; j < l; ++j) putchar("$ACGTN"[c]); \
+				} while (0)
+			rle_traverse(block, end, func);
+			#undef func
 		}
 		putchar('\n');
 		free(itr);

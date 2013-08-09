@@ -10,7 +10,19 @@ int main(void)
 	int64_t cnt[6], end_cnt[6];
 	memset(block, 0, block_len);
 	memset(end_cnt, 0, 48);
-	for (i = 0; i < 100000; ++i) {
+
+	rle_insert1(block_len, block, 0, 3, cnt, end_cnt);
+	rle_insert1(block_len, block, 1, 4, cnt, end_cnt);
+	rle_insert1(block_len, block, 2, 3, cnt, end_cnt);
+	rle_insert1(block_len, block, 2, 4, cnt, end_cnt);
+	rle_insert1(block_len, block, 4, 3, cnt, end_cnt);
+	rle_insert1(block_len, block, 3, 1, cnt, end_cnt);
+	rle_insert1(block_len, block, 1, 4, cnt, end_cnt);
+	rle_print(block_len, block);
+
+	return 0;
+
+	for (i = 0; i < 1000; ++i) {
 		rle_insert1(block_len, block, 0, 1, cnt, end_cnt);
 		++end_cnt[1];
 	}
