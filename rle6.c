@@ -7,9 +7,9 @@
 const uint8_t rle_auxtab[8] = { 0x01, 0x11, 0x21, 0x31, 0x03, 0x13, 0x07, 0x17 };
 
 // insert symbol $a after $x symbols in $str; marginal counts added to $cnt; returns the size increase
-int rle_insert(int block_len, uint8_t *block, int64_t x, int a, int64_t rl, int64_t cnt[6], const int64_t ec[6])
+int rle_insert(uint8_t *block, int64_t x, int a, int64_t rl, int64_t cnt[6], const int64_t ec[6])
 {
-	uint16_t *nptr = rle_nptr(block);
+	uint16_t *nptr = (uint16_t*)block;
 	int diff;
 
 	block += 2; // skip the first 2 counting bytes
@@ -75,8 +75,7 @@ int rle_insert(int block_len, uint8_t *block, int64_t x, int a, int64_t rl, int6
 		memcpy(p, tmp, n_bytes2);
 		diff = n_bytes2 - n_bytes;
 	}
-	*nptr += diff;
-	return *nptr + 18 > block_len? 1 : 0;
+	return (*nptr += diff);
 }
 
 void rle_split(uint8_t *block, uint8_t *new_block)

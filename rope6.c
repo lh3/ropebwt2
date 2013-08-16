@@ -124,10 +124,10 @@ static inline node_t *split_node(rope6_t *rope, node_t *u, node_t *v)
 }
 
 int64_t r6_insert_symbol(rope6_t *rope, int a, int64_t x)
-{ // insert $a after $x symbols in $rope and the returns the position of the next insertion
+{ // insert $a after $x symbols in $rope and the returns "C(a) + rank(a, x)"
 	node_t *u = 0, *v = 0, *p = rope->root; // $v is the parent of $p; $u and $v are at the same level and $u is the first node in the bucket
 	int64_t y = 0, z, cnt[6];
-	int i, is_split;
+	int i, n_runs;
 	for (i = 0, z = 0; i < a; ++i) z += rope->c[i];
 	do { // top-down update. Searching and node splitting are done together in one pass.
 		if (p->n == rope->max_nodes) { // node is full; split
@@ -146,18 +146,17 @@ int64_t r6_insert_symbol(rope6_t *rope, int a, int64_t x)
 		v = p; p = p->p; // descend
 	} while (!u->is_bottom);
 	++rope->c[a]; // $rope->c should be updated after the loop as adding a new root needs the old $rope->c counts
-	is_split = rle_insert(rope->block_len, (uint8_t*)p, x - y, a, 1, cnt, v->c);
-	z += cnt[a] + 1;
-	++v->c[a]; ++v->l; // this should be below rle_insert(); otherwise it won't work
-	if (is_split) split_node(rope, u, v);
-//	printf("%c\t%ld\t%ld\t%ld\n", "$ACGTN"[a], (long)x, (long)z, (long)(cnt[a] + 1));
+	n_runs = rle_insert((uint8_t*)p, x - y, a, 1, cnt, v->c);
+	z += cnt[a];
+	++v->c[a]; ++v->l; // this should be after rle_insert(); otherwise rle_insert() won't work
+	if (n_runs + RLE_MIN_SPACE > rope->block_len) split_node(rope, u, v);
 	return z;
 }
 
 void r6_insert_string_core(rope6_t *rope, int l, uint8_t *str, uint64_t x)
 {
 	for (--l; l >= 0; --l)
-		x = r6_insert_symbol(rope, str[l], x);
+		x = r6_insert_symbol(rope, str[l], x) + 1;
 	r6_insert_symbol(rope, 0, x);
 }
 
