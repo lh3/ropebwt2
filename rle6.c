@@ -9,9 +9,10 @@ const uint8_t rle_auxtab[8] = { 0x01, 0x11, 0x21, 0x31, 0x03, 0x13, 0x07, 0x17 }
 // insert symbol $a after $x symbols in $str; marginal counts added to $cnt; returns the size increase
 int rle_insert(int block_len, uint8_t *block, int64_t x, int a, int64_t rl, int64_t cnt[6], const int64_t ec[6])
 {
-	uint16_t *nptr = rle_nptr(block_len, block);
+	uint16_t *nptr = rle_nptr(block);
 	int diff;
 
+	block += 2; // skip the first 2 counting bytes
 	memset(cnt, 0, 48);
 	if (*nptr == 0) {
 		diff = rle_enc1(block, a, rl);
@@ -78,19 +79,19 @@ int rle_insert(int block_len, uint8_t *block, int64_t x, int a, int64_t rl, int6
 	return *nptr + 18 > block_len? 1 : 0;
 }
 
-void rle_split(int block_len, uint8_t *block, uint8_t *new_block)
+void rle_split(uint8_t *block, uint8_t *new_block)
 {
-	uint16_t *r, *p = rle_nptr(block_len, block);
-	uint8_t *end = block + *p, *q = block + (*p>>4>>1);
+	int n = *(uint16_t*)block;
+	uint8_t *end = block + 2 + n, *q = block + 2 + (n>>1);
 	while (*q>>6 == 2) --q;
-	memcpy(new_block, q, end - q);
-	r = rle_nptr(block_len, new_block);
-	*r = end - q; *p = q - block;
+	memcpy(new_block + 2, q, end - q);
+	*(uint16_t*)new_block = end - q;
+	*(uint16_t*)block = q - block - 2;
 }
 
-void rle_count(int block_len, const uint8_t *block, int64_t cnt[6])
+void rle_count(const uint8_t *block, int64_t cnt[6])
 {
-	const uint8_t *q = block, *end = q + *rle_nptr(block_len, block);
+	const uint8_t *q = block + 2, *end = q + *(uint16_t*)block;
 	while (q < end) {
 		int c;
 		int64_t l;
@@ -99,24 +100,22 @@ void rle_count(int block_len, const uint8_t *block, int64_t cnt[6])
 	}
 }
 
-void rle_print(int block_len, const uint8_t *block, int expand)
+void rle_print(const uint8_t *block, int expand)
 {
-	uint16_t *p = rle_nptr(block_len, block);
-	const uint8_t *q = block, *end = block + *p;
+	const uint16_t *p = (const uint16_t*)block;
+	const uint8_t *q = block + 2, *end = block + 2 + *p;
 	printf("%d\t", *p);
 	while (q < end) {
 		int c;
-		int64_t l;
+		int64_t l, x;
 		rle_dec1(q, c, l);
-		if (expand) {
-			int64_t x;
-			for (x = 0; x < l; ++x) putchar("$ACGTN"[c]);
-		} else printf("%c%ld", "$ACGTN"[c], (long)l);
+		if (expand) for (x = 0; x < l; ++x) putchar("$ACGTN"[c]);
+		else printf("%c%ld", "$ACGTN"[c], (long)l);
 	}
 	putchar('\n');
 }
 
-void rle_rank2a(int block_len, const uint8_t *block, int64_t x, int64_t y, int64_t *cx, int64_t *cy, const int64_t ec[6])
+void rle_rank2a(const uint8_t *block, int64_t x, int64_t y, int64_t *cx, int64_t *cy, const int64_t ec[6])
 {
 	int a;
 	int64_t tot, cnt[6];
@@ -129,7 +128,7 @@ void rle_rank2a(int block_len, const uint8_t *block, int64_t x, int64_t y, int64
 		int c = 0;
 		int64_t l, z = 0;
 		memset(cnt, 0, 48);
-		p = block;
+		p = block + 2;
 		while (z < x) {
 			rle_dec1(p, c, l);
 			z += l; cnt[c] += l;
@@ -161,7 +160,7 @@ void rle_rank2a(int block_len, const uint8_t *block, int64_t x, int64_t y, int64
 		int t = 0;
 		int64_t l = 0, z = tot;
 		memcpy(cnt, ec, 48);
-		p = block + *rle_nptr(block_len, block);
+		p = block + 2 + *(const uint16_t*)block;
 		if (cy) {
 			move_backward(y)
 			for (a = 0; a != 6; ++a) cy[a] += cnt[a];

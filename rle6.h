@@ -14,9 +14,9 @@ extern "C" {
 #endif
 
 	int rle_insert(int block_len, uint8_t *block, int64_t x, int a, int64_t rl, int64_t cnt[6], const int64_t end_cnt[6]);
-	void rle_split(int block_len, uint8_t *block, uint8_t *new_block);
-	void rle_count(int block_len, const uint8_t *block, int64_t cnt[6]);
-	void rle_rank2a(int block_len, const uint8_t *block, int64_t x, int64_t y, int64_t *cx, int64_t *cy, const int64_t ec[6]);
+	void rle_split(uint8_t *block, uint8_t *new_block);
+	void rle_count(const uint8_t *block, int64_t cnt[6]);
+	void rle_rank2a(const uint8_t *block, int64_t x, int64_t y, int64_t *cx, int64_t *cy, const int64_t ec[6]);
 
 #ifdef __cplusplus
 }
@@ -28,7 +28,7 @@ extern "C" {
 
 const uint8_t rle_auxtab[8];
 
-#define rle_nptr(len, block) ((uint16_t*)((block) + (len) - 2))
+#define rle_nptr(block) ((uint16_t*)(block))
 
 // decode one run (c,l) and move the pointer p
 #define rle_dec1(p, c, l) do { \

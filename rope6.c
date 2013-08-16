@@ -105,8 +105,8 @@ static inline node_t *split_node(rope6_t *rope, node_t *u, node_t *v)
 	w->p = mp_alloc(u->is_bottom? rope->leaf : rope->node);
 	if (u->is_bottom) { // we are at the bottom level; $v->p is a string instead of a node
 		uint8_t *p = (uint8_t*)v->p, *q = (uint8_t*)w->p;
-		rle_split(rope->block_len, p, q);
-		rle_count(rope->block_len, q, w->c);
+		rle_split(p, q);
+		rle_count(q, w->c);
 	} else { // $v->p is a node, not a string
 		node_t *p = v->p, *q = w->p; // $v and $w are siblings and thus $p and $q are cousins
 		p->n -= rope->max_nodes>>1;
@@ -202,11 +202,11 @@ void r6_rank2a(const rope6_t *rope, int64_t x, int64_t y, int64_t cx[6], int64_t
 	v = r6_count_to_leaf(rope, x, cx, &rest);
 	if (rest + (y - x) <= v->l) {
 		memcpy(cy, cx, 48);
-		rle_rank2a(rope->block_len, (const uint8_t*)v->p, rest, rest + (y - x), cx, cy, v->c);
+		rle_rank2a((const uint8_t*)v->p, rest, rest + (y - x), cx, cy, v->c);
 	} else {
-		rle_rank2a(rope->block_len, (const uint8_t*)v->p, rest, -1, cx, 0, v->c);
+		rle_rank2a((const uint8_t*)v->p, rest, -1, cx, 0, v->c);
 		v = r6_count_to_leaf(rope, y, cy, &rest);
-		rle_rank2a(rope->block_len, (const uint8_t*)v->p, rest, -1, cy, 0, v->c);
+		rle_rank2a((const uint8_t*)v->p, rest, -1, cy, 0, v->c);
 	}
 }
 
