@@ -200,7 +200,7 @@ void r6_rank1a(const rope6_t *rope, int64_t x, int64_t ok[6])
 	node_t *v;
 	int64_t rest;
 	v = r6_count_to_leaf(rope, x, ok, &rest);
-	rle_rank1a(rope->block_len, (const uint8_t*)v->p, rest, ok, v->c);
+	rle_rank2a(rope->block_len, (const uint8_t*)v->p, rest, rest, ok, 0, v->c);
 }
 
 void r6_insert_string_rlo(rope6_t *rope, int len, uint8_t *str)

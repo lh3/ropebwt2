@@ -16,7 +16,7 @@ extern "C" {
 	int rle_insert(int block_len, uint8_t *block, int64_t x, int a, int64_t rl, int64_t cnt[6], const int64_t end_cnt[6]);
 	void rle_split(int block_len, uint8_t *block, uint8_t *new_block);
 	void rle_count(int block_len, const uint8_t *block, int64_t cnt[6]);
-	void rle_rank1a(int block_len, const uint8_t *block, int64_t x, int64_t cnt[6], const int64_t ec[6]);
+	void rle_rank2a(int block_len, const uint8_t *block, int64_t x, int64_t y, int64_t *cx, int64_t *cy, const int64_t ec[6]);
 
 #ifdef __cplusplus
 }

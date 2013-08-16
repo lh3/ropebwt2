@@ -115,51 +115,16 @@ void rle_print(int block_len, const uint8_t *block, int expand)
 	}
 	putchar('\n');
 }
-/*
-void rle_rank1a(int block_len, const uint8_t *block, int64_t x, int64_t cnt[6], const int64_t ec[6])
-{
-	int64_t tot;
-	const uint8_t *p;
 
-	if (x == 0) return;
-	tot = ec[0] + ec[1] + ec[2] + ec[3] + ec[4] + ec[5];
-	if (x <= tot>>1) {
-		int c = 0;
-		int64_t l, z = 0;
-		p = block;
-		while (z < x) {
-			rle_dec1(p, c, l);
-			z += l; cnt[c] += l;
-		}
-		cnt[c] -= z - x;
-	} else {
-		int c, t = 0;
-		int64_t l = 0, z = tot;
-		for (c = 0; c != 6; ++c) cnt[c] += ec[c];
-		p = block + *rle_nptr(block_len, block);
-		while (z >= x) {
-			--p;
-			if (*p>>6 != 2) {
-				l |= *p>>7? (int64_t)rle_auxtab[*p>>3&7]>>4 << t : *p>>3;
-				z -= l; cnt[*p&7] -= l;
-				l = 0; t = 0;
-			} else {
-				l |= (*p&0x3fL) << t;
-				t += 6;
-			}
-		}
-		cnt[*p&7] += x - z;
-	}
-}
-*/
-void rle_rank2a(int block_len, const uint8_t *block, int64_t x, int64_t y, int64_t cx[6], int64_t cy[6], const int64_t ec[6])
+void rle_rank2a(int block_len, const uint8_t *block, int64_t x, int64_t y, int64_t *cx, int64_t *cy, const int64_t ec[6])
 {
 	int a;
 	int64_t tot, cnt[6];
 	const uint8_t *p;
 
 	tot = ec[0] + ec[1] + ec[2] + ec[3] + ec[4] + ec[5];
-	if (0 || x < tot - y) {
+	if (tot == 0) return;
+	if (x <= tot - y) {
 		int c = 0;
 		int64_t l, z = 0;
 		memset(cnt, 0, 48);
@@ -170,12 +135,14 @@ void rle_rank2a(int block_len, const uint8_t *block, int64_t x, int64_t y, int64
 		}
 		for (a = 0; a != 6; ++a) cx[a] += cnt[a];
 		cx[c] -= z - x;
-		while (z < y) {
-			rle_dec1(p, c, l);
-			z += l; cnt[c] += l;
+		if (cy) {
+			while (z < y) {
+				rle_dec1(p, c, l);
+				z += l; cnt[c] += l;
+			}
+			for (a = 0; a != 6; ++a) cy[a] += cnt[a];
+			cy[c] -= z - y;
 		}
-		for (a = 0; a != 6; ++a) cy[a] += cnt[a];
-		cy[c] -= z - y;
 	} else {
 #define move_backward(_x) \
 		while (z >= (_x)) { \
@@ -194,9 +161,11 @@ void rle_rank2a(int block_len, const uint8_t *block, int64_t x, int64_t y, int64
 		int64_t l = 0, z = tot;
 		memcpy(cnt, ec, 48);
 		p = block + *rle_nptr(block_len, block);
-		move_backward(y)
-		for (a = 0; a != 6; ++a) cy[a] += cnt[a];
-		cy[*p&7] += y - z;
+		if (cy) {
+			move_backward(y)
+			for (a = 0; a != 6; ++a) cy[a] += cnt[a];
+			cy[*p&7] += y - z;
+		}
 		move_backward(x)
 		for (a = 0; a != 6; ++a) cx[a] += cnt[a];
 		cx[*p&7] += x - z;
@@ -204,11 +173,3 @@ void rle_rank2a(int block_len, const uint8_t *block, int64_t x, int64_t y, int64
 #undef move_backward
 	}
 }
-
-void rle_rank1a(int block_len, const uint8_t *block, int64_t x, int64_t cnt[6], const int64_t ec[6])
-{
-	int64_t dummy[6];
-	memset(dummy, 0, 48);
-	rle_rank2a(block_len, block, x, x, cnt, dummy, ec);
-}
-
