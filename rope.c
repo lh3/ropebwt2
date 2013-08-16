@@ -2,8 +2,8 @@
 #include <string.h>
 #include <assert.h>
 #include <stdio.h>
-#include "rle6.h"
-#include "rope6.h"
+#include "rle.h"
+#include "rope.h"
 
 /*******************
  *** Memory Pool ***
@@ -51,23 +51,23 @@ static inline void *mp_alloc(mempool_t *mp)
  *** B+ rope ***
  ***************/
 
-typedef struct r6_node_s {
-	struct r6_node_s *p; // child; at the bottom level, $p points to a string with the first 4 bytes giving the number of runs (#runs)
+typedef struct rope_node_s {
+	struct rope_node_s *p; // child; at the bottom level, $p points to a string with the first 4 bytes giving the number of runs (#runs)
 	uint64_t l:54, n:9, is_bottom:1; // $n and $is_bottom are only set for the first node in a bucket
 	int64_t c[6]; // marginal counts
 } node_t;
 
-struct rope6_s {
+struct rope_s {
 	int max_nodes, block_len; // both MUST BE even numbers
 	int64_t c[6]; // marginal counts
 	node_t *root;
 	mempool_t *node, *leaf;
 };
 
-rope6_t *r6_init(int max_nodes, int block_len)
+rope_t *rope_init(int max_nodes, int block_len)
 {
-	rope6_t *rope;
-	rope = calloc(1, sizeof(rope6_t));
+	rope_t *rope;
+	rope = calloc(1, sizeof(rope_t));
 	if (block_len < 32) block_len = 32;
 	rope->max_nodes = (max_nodes+ 1)>>1<<1;
 	rope->block_len = (block_len + 7) >> 3 << 3;
@@ -80,14 +80,14 @@ rope6_t *r6_init(int max_nodes, int block_len)
 	return rope;
 }
 
-void r6_destroy(rope6_t *rope)
+void rope_destroy(rope_t *rope)
 {
 	mp_destroy(rope->node);
 	mp_destroy(rope->leaf);
 	free(rope);
 }
 
-static inline node_t *split_node(rope6_t *rope, node_t *u, node_t *v)
+static inline node_t *split_node(rope_t *rope, node_t *u, node_t *v)
 { // split $v's child. $u is the first node in the bucket. $v and $u are in the same bucket. IMPORTANT: there is always enough room in $u
 	int j, i = v - u;
 	node_t *w; // $w is the sibling of $v
@@ -123,7 +123,7 @@ static inline node_t *split_node(rope6_t *rope, node_t *u, node_t *v)
 	return v;
 }
 
-int64_t r6_insert_symbol(rope6_t *rope, int a, int64_t x)
+int64_t rope_insert_symbol(rope_t *rope, int a, int64_t x)
 { // insert $a after $x symbols in $rope and the returns "C(a) + rank(a, x)"
 	node_t *u = 0, *v = 0, *p = rope->root; // $v is the parent of $p; $u and $v are at the same level and $u is the first node in the bucket
 	int64_t y = 0, z, cnt[6];
@@ -153,19 +153,19 @@ int64_t r6_insert_symbol(rope6_t *rope, int a, int64_t x)
 	return z;
 }
 
-void r6_insert_string_core(rope6_t *rope, int l, uint8_t *str, uint64_t x)
+void rope_insert_string_core(rope_t *rope, int l, uint8_t *str, uint64_t x)
 {
 	for (--l; l >= 0; --l)
-		x = r6_insert_symbol(rope, str[l], x) + 1;
-	r6_insert_symbol(rope, 0, x);
+		x = rope_insert_symbol(rope, str[l], x) + 1;
+	rope_insert_symbol(rope, 0, x);
 }
 
-void r6_insert_string_io(rope6_t *rope, int l, uint8_t *str)
+void rope_insert_string_io(rope_t *rope, int l, uint8_t *str)
 {
-	r6_insert_string_core(rope, l, str, rope->c[0]);
+	rope_insert_string_core(rope, l, str, rope->c[0]);
 }
 
-static node_t *r6_count_to_leaf(const rope6_t *rope, int64_t x, int64_t cx[6], int64_t *rest)
+static node_t *rope_count_to_leaf(const rope_t *rope, int64_t x, int64_t cx[6], int64_t *rest)
 {
 	node_t *u, *v = 0, *p = rope->root;
 	int64_t y = 0;
@@ -194,63 +194,63 @@ static node_t *r6_count_to_leaf(const rope6_t *rope, int64_t x, int64_t cx[6], i
 	return v;
 }
 
-void r6_rank2a(const rope6_t *rope, int64_t x, int64_t y, int64_t cx[6], int64_t cy[6])
+void rope_rank2a(const rope_t *rope, int64_t x, int64_t y, int64_t cx[6], int64_t cy[6])
 {
 	node_t *v;
 	int64_t rest;
-	v = r6_count_to_leaf(rope, x, cx, &rest);
+	v = rope_count_to_leaf(rope, x, cx, &rest);
 	if (rest + (y - x) <= v->l) {
 		memcpy(cy, cx, 48);
 		rle_rank2a((const uint8_t*)v->p, rest, rest + (y - x), cx, cy, v->c);
 	} else {
 		rle_rank2a((const uint8_t*)v->p, rest, -1, cx, 0, v->c);
-		v = r6_count_to_leaf(rope, y, cy, &rest);
+		v = rope_count_to_leaf(rope, y, cy, &rest);
 		rle_rank2a((const uint8_t*)v->p, rest, -1, cy, 0, v->c);
 	}
 }
 
-void r6_insert_string_rlo(rope6_t *rope, int len, uint8_t *str)
+void rope_insert_string_rlo(rope_t *rope, int len, uint8_t *str)
 {
 	int64_t tl[6], tu[6], l, u;
 	l = 0; u = rope->c[0];
 	while (--len >= 0) {
 		int a, c = str[len];
-		r6_rank2a(rope, l, u, tl, tu);
+		rope_rank2a(rope, l, u, tl, tu);
 		for (a = 0; a < c; ++a) l += tu[a] - tl[a];
 		if (tl[c] < tu[c]) {
 			int64_t cnt;
-			r6_insert_symbol(rope, c, l);
+			rope_insert_symbol(rope, c, l);
 			for (a = 0, cnt = 0; a < c; ++a) cnt += rope->c[a];
 			l = cnt + tl[c] + 1; u = cnt + tu[c] + 1;
 		} else {
-			r6_insert_string_core(rope, len+1, str, l);
+			rope_insert_string_core(rope, len+1, str, l);
 			return;
 		}
 	}
-	r6_insert_symbol(rope, 0, l);
+	rope_insert_symbol(rope, 0, l);
 }
 
 /*********************
  *** Rope iterator ***
  *********************/
 
-struct r6itr_s {
-	const rope6_t *rope;
+struct ropeitr_s {
+	const rope_t *rope;
 	const node_t *pa[80];
 	int k, ia[80];
 };
 
-r6itr_t *r6_itr_init(const rope6_t *rope)
+ropeitr_t *rope_itr_init(const rope_t *rope)
 {
-	r6itr_t *i;
-	i = calloc(1, sizeof(r6itr_t));
+	ropeitr_t *i;
+	i = calloc(1, sizeof(ropeitr_t));
 	i->rope = rope;
 	for (i->pa[i->k] = rope->root; !i->pa[i->k]->is_bottom;) // descend to the leftmost leaf
 		++i->k, i->pa[i->k] = i->pa[i->k - 1]->p;
 	return i;
 }
 
-const uint8_t *r6_itr_next(r6itr_t *i, int *n)
+const uint8_t *rope_itr_next(ropeitr_t *i, int *n)
 {
 	const uint8_t *ret;
 	assert(i->k < 80); // a B+ tree should not be that tall

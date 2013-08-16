@@ -12,12 +12,12 @@ LIBS=		-lz
 
 all:$(PROG)
 
-ropebwt2:rle6.o rope6.o main.o
+ropebwt2:rle.o rope.o main.o
 		$(CC) $(CFLAGS) $(DFLAGS) $^ -o $@ $(LIBS)
 
-rle6.o:rle6.h
-rope6.o:rle6.h rope6.h
-main.o:rle6.h
+rle.o:rle.h
+rope.o:rle.h rope.h
+main.o:rle.h
 
 clean:
 		rm -fr gmon.out *.o ext/*.o a.out $(PROG) *~ *.a *.dSYM session*

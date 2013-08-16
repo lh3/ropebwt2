@@ -2,8 +2,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
-#include "rle6.h"
-#include "rope6.h"
+#include "rle.h"
+#include "rope.h"
 #include "kseq.h"
 KSEQ_INIT(gzFile, gzread)
 
@@ -27,7 +27,7 @@ static unsigned char seq_nt6_table[128] = {
 
 int main(int argc, char *argv[])
 {
-	rope6_t *r6;
+	rope_t *r6;
 	gzFile fp;
 	FILE *out = stdout;
 	kseq_t *ks;
@@ -59,7 +59,7 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	r6 = r6_init(max_nodes, block_len);
+	r6 = rope_init(max_nodes, block_len);
 	fp = strcmp(argv[optind], "-")? gzopen(argv[optind], "rb") : gzdopen(fileno(stdin), "rb");
 	ks = kseq_init(fp);
 	while (kseq_read(ks) >= 0) {
@@ -73,8 +73,8 @@ int main(int argc, char *argv[])
 			if (i == l>>1) --l; // if so, trim 1bp from the end
 		}
 		if (flag & FLAG_FOR) {
-			if (flag & FLAG_RLO) r6_insert_string_rlo(r6, ks->seq.l, s);
-			else r6_insert_string_io(r6, ks->seq.l, s);
+			if (flag & FLAG_RLO) rope_insert_string_rlo(r6, ks->seq.l, s);
+			else rope_insert_string_io(r6, ks->seq.l, s);
 		}
 		if (flag & FLAG_REV) {
 			for (i = 0; i < l>>1; ++i) {
@@ -84,19 +84,19 @@ int main(int argc, char *argv[])
 				s[i] = tmp;
 			}
 			if (l&1) s[i] = (s[i] >= 1 && s[i] <= 4)? 5 - s[i] : s[i];
-			if (flag & FLAG_RLO) r6_insert_string_rlo(r6, ks->seq.l, s);
-			else r6_insert_string_io(r6, ks->seq.l, s);
+			if (flag & FLAG_RLO) rope_insert_string_rlo(r6, ks->seq.l, s);
+			else rope_insert_string_io(r6, ks->seq.l, s);
 		}
 	}
 	kseq_destroy(ks);
 	gzclose(fp);
 
 	{
-		r6itr_t *itr;
+		ropeitr_t *itr;
 		int len;
 		const uint8_t *block;
-		itr = r6_itr_init(r6);
-		while ((block = r6_itr_next(itr, &len)) != 0) {
+		itr = rope_itr_init(r6);
+		while ((block = rope_itr_next(itr, &len)) != 0) {
 			const uint8_t *q = block + 2, *end = block + 2 + *rle_nptr(block);
 			while (q < end) {
 				int c = 0;
@@ -108,6 +108,6 @@ int main(int argc, char *argv[])
 		putchar('\n');
 		free(itr);
 	}
-	r6_destroy(r6); fclose(out);
+	rope_destroy(r6); fclose(out);
 	return 0;
 }
