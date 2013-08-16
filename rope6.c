@@ -195,12 +195,19 @@ static node_t *r6_count_to_leaf(const rope6_t *rope, int64_t x, int64_t cx[6], i
 	return v;
 }
 
-void r6_rank1a(const rope6_t *rope, int64_t x, int64_t ok[6])
-{ // on return: ok[c] = |{i<x && a<c:B[i]=c}|; note that it is "i<x" not "i<=x"
+void r6_rank2a(const rope6_t *rope, int64_t x, int64_t y, int64_t cx[6], int64_t cy[6])
+{
 	node_t *v;
 	int64_t rest;
-	v = r6_count_to_leaf(rope, x, ok, &rest);
-	rle_rank2a(rope->block_len, (const uint8_t*)v->p, rest, rest, ok, 0, v->c);
+	v = r6_count_to_leaf(rope, x, cx, &rest);
+	if (rest + (y - x) <= v->l) {
+		memcpy(cy, cx, 48);
+		rle_rank2a(rope->block_len, (const uint8_t*)v->p, rest, rest + (y - x), cx, cy, v->c);
+	} else {
+		rle_rank2a(rope->block_len, (const uint8_t*)v->p, rest, -1, cx, 0, v->c);
+		v = r6_count_to_leaf(rope, y, cy, &rest);
+		rle_rank2a(rope->block_len, (const uint8_t*)v->p, rest, -1, cy, 0, v->c);
+	}
 }
 
 void r6_insert_string_rlo(rope6_t *rope, int len, uint8_t *str)
@@ -209,9 +216,7 @@ void r6_insert_string_rlo(rope6_t *rope, int len, uint8_t *str)
 	l = 0; u = rope->c[0];
 	while (--len >= 0) {
 		int a, c = str[len];
-//		printf("%lld\t%lld\t", l, u); rle_print(rope->block_len, (uint8_t*)rope->root->p, 1);
-		r6_rank1a(rope, l, tl);
-		r6_rank1a(rope, u, tu);
+		r6_rank2a(rope, l, u, tl, tu);
 		for (a = 0; a < c; ++a) l += tu[a] - tl[a];
 		if (tl[c] < tu[c]) {
 			int64_t cnt;
