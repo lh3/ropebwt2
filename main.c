@@ -25,16 +25,32 @@ static unsigned char seq_nt6_table[128] = {
 #define FLAG_TREE 0x10
 #define FLAG_RLO 0x80
 
+static inline int kputsn(const char *p, int l, kstring_t *s)
+{
+	if (s->l + l + 1 >= s->m) {
+		char *tmp;
+		s->m = s->l + l + 2;
+		kroundup32(s->m);
+		if ((tmp = (char*)realloc(s->s, s->m))) s->s = tmp;
+		else return EOF;
+	}
+	memcpy(s->s + s->l, p, l);
+	s->l += l;
+	s->s[s->l] = 0;
+	return l;
+}
+
 int main(int argc, char *argv[])
 {
 	rope_t *r6;
 	gzFile fp;
 	FILE *out = stdout;
 	kseq_t *ks;
-	int c, i, block_len = 512, max_nodes = 64;
+	int c, i, block_len = 512, max_nodes = 64, m = 0;
 	int flag = FLAG_FOR | FLAG_REV | FLAG_ODD;
+	kstring_t buf = { 0, 0, 0 };
 
-	while ((c = getopt(argc, argv, "TFRObso:l:n:")) >= 0)
+	while ((c = getopt(argc, argv, "TFRObso:l:n:m:")) >= 0)
 		if (c == 'o') out = fopen(optarg, "wb");
 		else if (c == 'F') flag &= ~FLAG_FOR;
 		else if (c == 'R') flag &= ~FLAG_REV;
@@ -44,6 +60,15 @@ int main(int argc, char *argv[])
 		else if (c == 's') flag |= FLAG_RLO;
 		else if (c == 'l') block_len = atoi(optarg);
 		else if (c == 'n') max_nodes= atoi(optarg);
+		else if (c == 'm') {
+			long x;
+			char *p;
+			x = strtol(optarg, &p, 10);
+			if (*p == 'K' || *p == 'k') x *= 1024;
+			else if (*p == 'M' || *p == 'm') x *= 1024 * 1024;
+			else if (*p == 'G' || *p == 'g') x *= 1024 * 1024 * 1024;
+			m = (int)(m * .97);
+		}
 
 	if (optind == argc) {
 		fprintf(stderr, "\n");
@@ -77,8 +102,10 @@ int main(int argc, char *argv[])
 			if (i == l>>1) --l; // if so, trim 1bp from the end
 		}
 		if (flag & FLAG_FOR) {
-			if (flag & FLAG_RLO) rope_insert_string_rlo(r6, s);
-			else rope_insert_string_io(r6, s);
+			if (!m) {
+				if (flag & FLAG_RLO) rope_insert_string_rlo(r6, s);
+				else rope_insert_string_io(r6, s);
+			} else kputsn((char*)ks->seq.s, ks->seq.l, &buf);
 		}
 		if (flag & FLAG_REV) {
 			for (i = 0; i < l>>1; ++i) {
@@ -88,10 +115,17 @@ int main(int argc, char *argv[])
 				s[i] = tmp;
 			}
 			if (l&1) s[i] = (s[i] >= 1 && s[i] <= 4)? 5 - s[i] : s[i];
-			if (flag & FLAG_RLO) rope_insert_string_rlo(r6, s);
-			else rope_insert_string_io(r6, s);
+			if (!m) {
+				if (flag & FLAG_RLO) rope_insert_string_rlo(r6, s);
+				else rope_insert_string_io(r6, s);
+			} else kputsn((char*)ks->seq.s, ks->seq.l, &buf);
+		}
+		if (m && buf.l >= m) {
+			rope_insert_multi(r6, buf.l, (uint8_t*)buf.s);
+			buf.l = 0;
 		}
 	}
+	if (m && buf.l >= m) rope_insert_multi(r6, buf.l, (uint8_t*)buf.s);
 	kseq_destroy(ks);
 	gzclose(fp);
 
