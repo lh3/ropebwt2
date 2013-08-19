@@ -233,6 +233,92 @@ void rope_insert_string_rlo(rope_t *rope, const uint8_t *str)
 	rope_insert_run(rope, l, 0, 1);
 }
 
+/*******************************
+ *** Insert multiple strings ***
+ *******************************/
+
+#include "kvec.h"
+
+typedef struct {
+	int64_t l, u;
+	int64_t b, e;
+	int64_t depth;
+} elem_t;
+
+#include "ksort.h"
+#define elem_lt(a, b) ((a).l < (b).l)
+KSORT_INIT(heap, elem_t, elem_lt)
+
+typedef const uint8_t *cstr_t;
+
+void rope_insert_multi(rope_t *rope, int64_t len, const uint8_t *s)
+{
+	int64_t i, m;
+	cstr_t *ptr, *sorted, p, q, end = s + len;
+	uint8_t *oracle;
+	kvec_t(elem_t) heap = { 0, 0, 0 };
+	elem_t *t;
+
+	assert(len > 0 && s[len-1] == 0);
+	for (p = s; p != end; ++p) // count #sentinels
+		if (*p == 0) ++m;
+	oracle = malloc(m);
+	ptr = malloc(m * sizeof(cstr_t));
+	sorted = malloc(m * sizeof(cstr_t));
+	for (p = q = s, i = 0; p != end; ++p) // find the start of each string
+		if (*p == 0) ptr[i++] = q, q = p + 1;
+
+	// add the first element to the heap
+	kv_pushp(elem_t, heap, &t);
+	t->l = 0, t->u = rope->c[0];
+	t->b = 0, t->e = m;
+	t->depth = 0;
+
+	// the core loop
+	while (heap.n) {
+		elem_t top = heap.a[0];
+		int a;
+		int64_t c[6], ac[6], n = top.e - top.b;
+		int64_t x, tl[6], tu[6], ac2;
+
+		heap.a[0] = kv_pop(heap);
+		ks_heapdown_heap(0, heap.n, heap.a);
+
+		memset(c, 0, 48);
+		for (i = 0; i != n; ++i) // loop fission
+			oracle[i] = ptr[i][top.depth];
+		for (i = 0; i != n; ++i) // counting
+			++c[oracle[i]];
+		for (ac[0] = 0, a = 1; a != 6; ++a) // accumulative counts
+			ac[i] = ac[i-1] + c[i-1];
+		for (i = 0; i != n; ++i) // counting sort
+			sorted[ac[oracle[i]]++] = ptr[i];
+		memcpy(ptr + top.b, sorted, n * sizeof(cstr_t));
+
+		rope_rank2a(rope, top.l, top.u, tl, tu);
+		for (a = 0, x = top.l, ac2 = 0; a != 6; ++a) {
+			if (c[a]) {
+				rope_insert_run(rope, x, a, c[a]);
+				if (a) {
+					kv_pushp(elem_t, heap, &t);
+					t->l = ac2 + tl[a] + m;
+					t->u = ac2 + tu[a] + m;
+					t->b = ac[a] - c[a], t->e = ac[a];
+					t->depth = top.depth + 1;
+					ks_heapup_heap(heap.n, heap.a);
+				}
+			}
+			ac2 += rope->c[a];
+			x += tu[a] - tl[a];
+		}
+		m -= c[0];
+	}
+
+	free(sorted);
+	free(ptr);
+	free(oracle);
+}
+
 /*********************
  *** Rope iterator ***
  *********************/
