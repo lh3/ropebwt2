@@ -65,16 +65,20 @@ int main(int argc, char *argv[])
 	while (kseq_read(ks) >= 0) {
 		int l = ks->seq.l;
 		uint8_t *s = (uint8_t*)ks->seq.s;
-		for (i = 0; i < l; ++i)
+		for (i = 0; i < l; ++i) // change encoding
 			s[i] = s[i] < 128? seq_nt6_table[s[i]] : 5;
+		for (i = 0; i < l>>1; ++i) { // reverse
+			int tmp = s[l-1-i];
+			s[l-1-i] = s[i]; s[i] = tmp;
+		}
 		if ((flag & FLAG_ODD) && (l&1) == 0) { // then check reverse complement
 			for (i = 0; i < l>>1; ++i) // is the reverse complement is identical to itself?
 				if (s[i] + s[l-1-i] != 5) break;
 			if (i == l>>1) --l; // if so, trim 1bp from the end
 		}
 		if (flag & FLAG_FOR) {
-			if (flag & FLAG_RLO) rope_insert_string_rlo(r6, ks->seq.l, s);
-			else rope_insert_string_io(r6, ks->seq.l, s);
+			if (flag & FLAG_RLO) rope_insert_string_rlo(r6, s);
+			else rope_insert_string_io(r6, s);
 		}
 		if (flag & FLAG_REV) {
 			for (i = 0; i < l>>1; ++i) {
@@ -84,8 +88,8 @@ int main(int argc, char *argv[])
 				s[i] = tmp;
 			}
 			if (l&1) s[i] = (s[i] >= 1 && s[i] <= 4)? 5 - s[i] : s[i];
-			if (flag & FLAG_RLO) rope_insert_string_rlo(r6, ks->seq.l, s);
-			else rope_insert_string_io(r6, ks->seq.l, s);
+			if (flag & FLAG_RLO) rope_insert_string_rlo(r6, s);
+			else rope_insert_string_io(r6, s);
 		}
 	}
 	kseq_destroy(ks);

@@ -153,16 +153,16 @@ int64_t rope_insert_run(rope_t *rope, int64_t x, int a, int64_t rl)
 	return z;
 }
 
-void rope_insert_string_core(rope_t *rope, int l, uint8_t *str, uint64_t x)
+void rope_insert_string_core(rope_t *rope, const uint8_t *str, int64_t x)
 {
-	for (--l; l >= 0; --l)
-		x = rope_insert_run(rope, x, str[l], 1) + 1;
-	rope_insert_run(rope, x, 0, 1);
+	const uint8_t *p = str;
+	while (*p) x = rope_insert_run(rope, x, *p++, 1) + 1;
+	rope_insert_run(rope, x, *p, 1);
 }
 
-void rope_insert_string_io(rope_t *rope, int l, uint8_t *str)
+void rope_insert_string_io(rope_t *rope, const uint8_t *str)
 {
-	rope_insert_string_core(rope, l, str, rope->c[0]);
+	rope_insert_string_core(rope, str, rope->c[0]);
 }
 
 static node_t *rope_count_to_leaf(const rope_t *rope, int64_t x, int64_t cx[6], int64_t *rest)
@@ -211,12 +211,13 @@ void rope_rank2a(const rope_t *rope, int64_t x, int64_t y, int64_t *cx, int64_t 
 	}
 }
 
-void rope_insert_string_rlo(rope_t *rope, int len, uint8_t *str)
+void rope_insert_string_rlo(rope_t *rope, const uint8_t *str)
 {
 	int64_t tl[6], tu[6], l, u;
+	const uint8_t *p;
 	l = 0; u = rope->c[0];
-	while (--len >= 0) {
-		int a, c = str[len];
+	for (p = str; *p; ++p) {
+		int a, c = *p;
 		rope_rank2a(rope, l, u, tl, tu);
 		for (a = 0; a < c; ++a) l += tu[a] - tl[a];
 		if (tl[c] < tu[c]) {
@@ -225,7 +226,7 @@ void rope_insert_string_rlo(rope_t *rope, int len, uint8_t *str)
 			for (a = 0, cnt = 0; a < c; ++a) cnt += rope->c[a];
 			l = cnt + tl[c] + 1; u = cnt + tu[c] + 1;
 		} else {
-			rope_insert_string_core(rope, len+1, str, l);
+			rope_insert_string_core(rope, p, l);
 			return;
 		}
 	}
