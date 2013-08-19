@@ -153,16 +153,12 @@ int64_t rope_insert_run(rope_t *rope, int64_t x, int a, int64_t rl)
 	return z;
 }
 
-void rope_insert_string_core(rope_t *rope, const uint8_t *str, int64_t x)
-{
-	const uint8_t *p = str;
-	while (*p) x = rope_insert_run(rope, x, *p++, 1) + 1;
-	rope_insert_run(rope, x, *p, 1);
-}
-
 void rope_insert_string_io(rope_t *rope, const uint8_t *str)
 {
-	rope_insert_string_core(rope, str, rope->c[0]);
+	const uint8_t *p = str;
+	int64_t x = rope->c[0];
+	while (*p) x = rope_insert_run(rope, x, *p++, 1) + 1;
+	rope_insert_run(rope, x, 0, 1);
 }
 
 static node_t *rope_count_to_leaf(const rope_t *rope, int64_t x, int64_t cx[6], int64_t *rest)
@@ -218,17 +214,14 @@ void rope_insert_string_rlo(rope_t *rope, const uint8_t *str)
 	l = 0; u = rope->c[0];
 	for (p = str; *p; ++p) {
 		int a, c = *p;
-		rope_rank2a(rope, l, u, tl, tu);
-		for (a = 0; a < c; ++a) l += tu[a] - tl[a];
-		if (tl[c] < tu[c]) {
+		if (l != u) {
 			int64_t cnt;
+			rope_rank2a(rope, l, u, tl, tu);
+			for (a = 0; a < c; ++a) l += tu[a] - tl[a];
 			rope_insert_run(rope, l, c, 1);
 			for (a = 0, cnt = 0; a < c; ++a) cnt += rope->c[a];
 			l = cnt + tl[c] + 1; u = cnt + tu[c] + 1;
-		} else {
-			rope_insert_string_core(rope, p, l);
-			return;
-		}
+		} else u = l = rope_insert_run(rope, l, c, 1) + 1;
 	}
 	rope_insert_run(rope, l, 0, 1);
 }
@@ -294,6 +287,8 @@ void rope_insert_multi(rope_t *rope, int64_t len, const uint8_t *s)
 		for (i = 0; i != n; ++i) // counting sort
 			sorted[ac[oracle[i]]++] = ptr[i];
 		memcpy(ptr + top.b, sorted, n * sizeof(cstr_t));
+		for (ac[0] = 0, a = 1; a != 6; ++a) // recalculate accumulative counts
+			ac[i] = ac[i-1] + c[i-1];
 
 		rope_rank2a(rope, top.l, top.u, tl, tu);
 		for (a = 0, x = top.l, ac2 = 0; a != 6; ++a) {
@@ -303,13 +298,13 @@ void rope_insert_multi(rope_t *rope, int64_t len, const uint8_t *s)
 					kv_pushp(elem_t, heap, &t);
 					t->l = ac2 + tl[a] + m;
 					t->u = ac2 + tu[a] + m;
-					t->b = ac[a] - c[a], t->e = ac[a];
+					t->b = ac[a], t->e = ac[a] + c[a];
 					t->depth = top.depth + 1;
 					ks_heapup_heap(heap.n, heap.a);
 				}
 			}
 			ac2 += rope->c[a];
-			x += tu[a] - tl[a];
+			x += tu[a] - tl[a] + c[a];
 		}
 		m -= c[0];
 	}
