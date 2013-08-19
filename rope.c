@@ -123,7 +123,7 @@ static inline node_t *split_node(rope_t *rope, node_t *u, node_t *v)
 	return v;
 }
 
-int64_t rope_insert_symbol(rope_t *rope, int a, int64_t x)
+int64_t rope_insert_run(rope_t *rope, int64_t x, int a, int64_t rl)
 { // insert $a after $x symbols in $rope and the returns "C(a) + rank(a, x)"
 	node_t *u = 0, *v = 0, *p = rope->root; // $v is the parent of $p; $u and $v are at the same level and $u is the first node in the bucket
 	int64_t y = 0, z, cnt[6];
@@ -145,10 +145,10 @@ int64_t rope_insert_symbol(rope_t *rope, int a, int64_t x)
 		if (v) ++v->c[a], ++v->l; // we should not change p->c[a] because this may cause troubles when p's child is split
 		v = p; p = p->p; // descend
 	} while (!u->is_bottom);
-	++rope->c[a]; // $rope->c should be updated after the loop as adding a new root needs the old $rope->c counts
-	n_runs = rle_insert((uint8_t*)p, x - y, a, 1, cnt, v->c);
+	rope->c[a] += rl; // $rope->c should be updated after the loop as adding a new root needs the old $rope->c counts
+	n_runs = rle_insert((uint8_t*)p, x - y, a, rl, cnt, v->c);
 	z += cnt[a];
-	++v->c[a]; ++v->l; // this should be after rle_insert(); otherwise rle_insert() won't work
+	v->c[a] += rl; v->l += rl; // this should be after rle_insert(); otherwise rle_insert() won't work
 	if (n_runs + RLE_MIN_SPACE > rope->block_len) split_node(rope, u, v);
 	return z;
 }
@@ -156,8 +156,8 @@ int64_t rope_insert_symbol(rope_t *rope, int a, int64_t x)
 void rope_insert_string_core(rope_t *rope, int l, uint8_t *str, uint64_t x)
 {
 	for (--l; l >= 0; --l)
-		x = rope_insert_symbol(rope, str[l], x) + 1;
-	rope_insert_symbol(rope, 0, x);
+		x = rope_insert_run(rope, x, str[l], 1) + 1;
+	rope_insert_run(rope, x, 0, 1);
 }
 
 void rope_insert_string_io(rope_t *rope, int l, uint8_t *str)
@@ -194,18 +194,20 @@ static node_t *rope_count_to_leaf(const rope_t *rope, int64_t x, int64_t cx[6], 
 	return v;
 }
 
-void rope_rank2a(const rope_t *rope, int64_t x, int64_t y, int64_t cx[6], int64_t cy[6])
+void rope_rank2a(const rope_t *rope, int64_t x, int64_t y, int64_t *cx, int64_t *cy)
 {
 	node_t *v;
 	int64_t rest;
 	v = rope_count_to_leaf(rope, x, cx, &rest);
-	if (rest + (y - x) <= v->l) {
+	if (y < x || cy == 0) {
+		rle_rank1a((const uint8_t*)v->p, rest, cx, v->c);
+	} else if (rest + (y - x) <= v->l) {
 		memcpy(cy, cx, 48);
 		rle_rank2a((const uint8_t*)v->p, rest, rest + (y - x), cx, cy, v->c);
 	} else {
-		rle_rank2a((const uint8_t*)v->p, rest, -1, cx, 0, v->c);
+		rle_rank1a((const uint8_t*)v->p, rest, cx, v->c);
 		v = rope_count_to_leaf(rope, y, cy, &rest);
-		rle_rank2a((const uint8_t*)v->p, rest, -1, cy, 0, v->c);
+		rle_rank1a((const uint8_t*)v->p, rest, cy, v->c);
 	}
 }
 
@@ -219,7 +221,7 @@ void rope_insert_string_rlo(rope_t *rope, int len, uint8_t *str)
 		for (a = 0; a < c; ++a) l += tu[a] - tl[a];
 		if (tl[c] < tu[c]) {
 			int64_t cnt;
-			rope_insert_symbol(rope, c, l);
+			rope_insert_run(rope, l, c, 1);
 			for (a = 0, cnt = 0; a < c; ++a) cnt += rope->c[a];
 			l = cnt + tl[c] + 1; u = cnt + tu[c] + 1;
 		} else {
@@ -227,7 +229,7 @@ void rope_insert_string_rlo(rope_t *rope, int len, uint8_t *str)
 			return;
 		}
 	}
-	rope_insert_symbol(rope, 0, l);
+	rope_insert_run(rope, l, 0, 1);
 }
 
 /*********************
