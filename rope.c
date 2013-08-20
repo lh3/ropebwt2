@@ -142,7 +142,7 @@ int64_t rope_insert_run(rope_t *rope, int64_t x, int a, int64_t rl)
 			++p;
 		} else for (; y + p->l < x; ++p) y += p->l, z += p->c[a]; // then search forwardly
 		assert(p - u < u->n);
-		if (v) ++v->c[a], ++v->l; // we should not change p->c[a] because this may cause troubles when p's child is split
+		if (v) v->c[a] += rl, v->l += rl; // we should not change p->c[a] because this may cause troubles when p's child is split
 		v = p; p = p->p; // descend
 	} while (!u->is_bottom);
 	rope->c[a] += rl; // $rope->c should be updated after the loop as adding a new root needs the old $rope->c counts
@@ -287,8 +287,7 @@ void rope_insert_multi(rope_t *rope, int64_t len, const uint8_t *s)
 			rope_rank2a(rope, r->l, r->u, tl, tu);
 			for (a = 0, x = r->l; a != 6; ++a) {
 				if (c[a]) {
-					//rope_insert_run(rope, x, a, c[a]);
-					int64_t j; for (j = 0; j < c[a]; ++j) rope_insert_run(rope, x, a, 1);
+					rope_insert_run(rope, x, a, c[a]);
 					//rle_print((uint8_t*)rope->root->p, 1);
 					if (a) {
 						++c2[a];
