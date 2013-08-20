@@ -288,7 +288,7 @@ void rope_insert_multi(rope_t *rope, int64_t len, const uint8_t *s)
 				ac[a] = ac[a-1] + c[a-1];
 			for (i = 0; i != r->m; ++i) // counting sort
 				sorted[ac[oracle[i]]++] = ptr[i + r->b];
-			memcpy(ptr + r->b, sorted + c[0], r->m * sizeof(cstr_t));
+			memcpy(ptr + r->b, sorted, r->m * sizeof(cstr_t));
 			for (a = 0; a != 6; ++a) ac[a] -= c[a];
 
 			if (r->l == r->u) {
@@ -299,6 +299,7 @@ void rope_insert_multi(rope_t *rope, int64_t len, const uint8_t *s)
 				if (c[a]) {
 					int64_t y;
 					y = rope_insert_run(rope, x, a, c[a]);
+					//rle_print((uint8_t*)rope->root->p, 1);
 					if (a) {
 						++c2[a];
 						t = &curr[n_curr++];
@@ -319,7 +320,7 @@ void rope_insert_multi(rope_t *rope, int64_t len, const uint8_t *s)
 		for (k = 0; k != n_curr; ++k) {
 			elem_t *r = &prev[k];
 			r->l += ac[r->c]; r->u += ac[r->c];
-			//printf("%c\t[%lld,%lld)\t%ld\n", "$ACGTN"[r->c], r->l, r->u, (long)r->m);
+			//printf("%c%ld:[%lld,%lld)\n", "$ACGTN"[r->c], (long)r->m, r->l, r->u);
 		}
 		n_prev = n_curr;
 	}
