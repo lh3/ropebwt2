@@ -230,11 +230,8 @@ void rope_insert_string_rlo(rope_t *rope, const uint8_t *str)
  *** Insert multiple strings ***
  *******************************/
 
-#include "kvec.h"
-
 typedef struct {
-	int64_t l, u;
-	int64_t m:60, c:4;
+	int64_t l, u, b, m:60, c:4;
 } elem_t;
 
 typedef const uint8_t *cstr_t;
@@ -244,7 +241,7 @@ void rope_insert_multi(rope_t *rope, int64_t len, const uint8_t *s)
 	int64_t i, m, d, n_curr, n_prev;
 	cstr_t *ptr, *sorted, p, q, end = s + len;
 	uint8_t *oracle;
-	elem_t *curr, *prev, *swap;
+	elem_t *curr, *prev;
 	elem_t *t;
 
 	assert(len > 0 && s[len-1] == 0);
@@ -262,13 +259,14 @@ void rope_insert_multi(rope_t *rope, int64_t len, const uint8_t *s)
 	// add the first element to the heap
 	n_prev = 0;
 	t = &prev[n_prev++];
-	t->l = 0, t->u = rope->c[0], t->m = m, t->c = 0;
+	t->l = 0, t->u = rope->c[0], t->b = 0, t->m = m, t->c = 0;
 
 	// the core loop
 	for (d = 0; n_prev; ++d) {
 		int a;
-		int64_t k, b = 0, m0 = 0, ac[6], n_ptr = 0;
+		int64_t k, m0 = 0, ac[6], c2[6];
 		n_curr = 0;
+		memset(c2, 0, 48);
 		for (k = 0; k != n_prev; ++k) {
 			elem_t *r = &prev[k];
 			int64_t c[6];
@@ -276,39 +274,43 @@ void rope_insert_multi(rope_t *rope, int64_t len, const uint8_t *s)
 
 			memset(c, 0, 48);
 			for (i = 0; i != r->m; ++i) // loop fission
-				oracle[i] = ptr[i+b][d];
+				oracle[i] = ptr[i + r->b][d];
 			for (i = 0; i != r->m; ++i) // counting
 				++c[oracle[i]];
 			for (ac[0] = 0, a = 1; a != 6; ++a) // accumulative counts
 				ac[a] = ac[a-1] + c[a-1];
 			for (i = 0; i != r->m; ++i) // counting sort
-				sorted[ac[oracle[i]]++] = ptr[i+b];
-			memcpy(ptr + n_ptr, sorted + c[0], r->m * sizeof(cstr_t));
+				sorted[ac[oracle[i]]++] = ptr[i + r->b];
+			memcpy(ptr + r->b, sorted + c[0], r->m * sizeof(cstr_t));
+			for (a = 0; a != 6; ++a) ac[a] -= c[a];
 
 			rope_rank2a(rope, r->l, r->u, tl, tu);
 			for (a = 0, x = r->l; a != 6; ++a) {
 				if (c[a]) {
 					rope_insert_run(rope, x, a, c[a]);
-					rle_print((uint8_t*)rope->root->p, 1);
+					//rle_print((uint8_t*)rope->root->p, 1);
 					if (a) {
+						++c2[a];
 						t = &curr[n_curr++];
-						t->l = tl[a], t->u = tu[a], t->m = c[a], t->c = a;
+						t->l = tl[a], t->u = tu[a], t->c = a;
+						t->b = r->b + ac[a], t->m = c[a];
 					}
 				}
 				x += tu[a] - tl[a] + c[a];
 			}
-			m0 += c[0]; b += r->m;
-			n_ptr += c[1] + c[2] + c[3] + c[4] + c[5];
+			m0 += c[0];
 		}
+		for (a = 1, ac[0] = 0; a != 6; ++a) ac[a] = ac[a-1] + c2[a-1];
+		for (k = 0; k != n_curr; ++k) // counting sort
+			prev[ac[curr[k].c]++] = curr[k];
 		m -= m0;
 		for (a = 1, ac[0] = m; a != 6; ++a)
 			ac[a] = ac[a-1] + rope->c[a-1];
 		for (k = 0; k != n_curr; ++k) {
-			elem_t *r = &curr[k];
+			elem_t *r = &prev[k];
 			r->l += ac[r->c]; r->u += ac[r->c];
-			fprintf(stderr, "[%lld,%lld)\t%lld\n", r->l, r->u, r->m);
+			//printf("%c\t[%lld,%lld)\t%ld\n", "$ACGTN"[r->c], r->l, r->u, (long)r->m);
 		}
-		swap = curr; curr = prev; prev = swap;
 		n_prev = n_curr;
 	}
 

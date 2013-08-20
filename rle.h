@@ -19,6 +19,8 @@ extern "C" {
 	void rle_rank2a(const uint8_t *block, int64_t x, int64_t y, int64_t *cx, int64_t *cy, const int64_t ec[6]);
 	#define rle_rank1a(block, x, cx, ec) rle_rank2a(block, x, -1, cx, 0, ec)
 
+	void rle_print(const uint8_t *block, int expand);
+
 #ifdef __cplusplus
 }
 #endif

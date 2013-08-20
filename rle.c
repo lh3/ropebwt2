@@ -103,7 +103,6 @@ void rle_print(const uint8_t *block, int expand)
 {
 	const uint16_t *p = (const uint16_t*)block;
 	const uint8_t *q = block + 2, *end = block + 2 + *p;
-	printf("%d\t", *p);
 	while (q < end) {
 		int c;
 		int64_t l, x;
