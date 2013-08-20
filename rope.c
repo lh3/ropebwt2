@@ -124,11 +124,10 @@ static inline node_t *split_node(rope_t *rope, node_t *u, node_t *v)
 }
 
 int64_t rope_insert_run(rope_t *rope, int64_t x, int a, int64_t rl)
-{ // insert $a after $x symbols in $rope and the returns "C(a) + rank(a, x)"
+{ // insert $a after $x symbols in $rope and the returns rank(a, x)
 	node_t *u = 0, *v = 0, *p = rope->root; // $v is the parent of $p; $u and $v are at the same level and $u is the first node in the bucket
-	int64_t y = 0, z, cnt[6];
-	int i, n_runs;
-	for (i = 0, z = 0; i < a; ++i) z += rope->c[i];
+	int64_t y = 0, z = 0, cnt[6];
+	int n_runs;
 	do { // top-down update. Searching and node splitting are done together in one pass.
 		if (p->n == rope->max_nodes) { // node is full; split
 			v = split_node(rope, u, v); // $v points to the parent of $p; when a new root is added, $v points to the root
@@ -155,9 +154,13 @@ int64_t rope_insert_run(rope_t *rope, int64_t x, int a, int64_t rl)
 
 void rope_insert_string_io(rope_t *rope, const uint8_t *str)
 {
-	const uint8_t *p = str;
+	const uint8_t *p;
 	int64_t x = rope->c[0];
-	while (*p) x = rope_insert_run(rope, x, *p++, 1) + 1;
+	int a;
+	for (p = str; *p; ++p) {
+		x = rope_insert_run(rope, x, *p, 1) + 1;
+		for (a = 0; a < *p; ++a) x += rope->c[a];
+	}
 	rope_insert_run(rope, x, 0, 1);
 }
 
@@ -221,7 +224,11 @@ void rope_insert_string_rlo(rope_t *rope, const uint8_t *str)
 			rope_insert_run(rope, l, c, 1);
 			for (a = 0, cnt = 0; a < c; ++a) cnt += rope->c[a];
 			l = cnt + tl[c] + 1; u = cnt + tu[c] + 1;
-		} else u = l = rope_insert_run(rope, l, c, 1) + 1;
+		} else {
+			l = rope_insert_run(rope, l, c, 1) + 1;
+			for (a = 0; a < c; ++a) l += rope->c[a];
+			u = l;
+		}
 	}
 	rope_insert_run(rope, l, 0, 1);
 }
@@ -264,7 +271,7 @@ void rope_insert_multi(rope_t *rope, int64_t len, const uint8_t *s)
 	// the core loop
 	for (d = 0; n_prev; ++d) {
 		int a;
-		int64_t k, m0 = 0, ac[6], c2[6];
+		int64_t k, ac[6], c2[6];
 		n_curr = 0;
 		memset(c2, 0, 48);
 		for (k = 0; k != n_prev; ++k) {
@@ -284,26 +291,29 @@ void rope_insert_multi(rope_t *rope, int64_t len, const uint8_t *s)
 			memcpy(ptr + r->b, sorted + c[0], r->m * sizeof(cstr_t));
 			for (a = 0; a != 6; ++a) ac[a] -= c[a];
 
-			rope_rank2a(rope, r->l, r->u, tl, tu);
+			if (r->l == r->u) {
+				memset(tl, 0, 48);
+				memset(tu, 0, 48);
+			} else rope_rank2a(rope, r->l, r->u, tl, tu);
 			for (a = 0, x = r->l; a != 6; ++a) {
 				if (c[a]) {
-					rope_insert_run(rope, x, a, c[a]);
-					//rle_print((uint8_t*)rope->root->p, 1);
+					int64_t y;
+					y = rope_insert_run(rope, x, a, c[a]);
 					if (a) {
 						++c2[a];
 						t = &curr[n_curr++];
-						t->l = tl[a], t->u = tu[a], t->c = a;
-						t->b = r->b + ac[a], t->m = c[a];
+						t->l = r->l == r->u? y : tl[a];
+						t->u = r->l == r->u? y : tu[a];
+						t->b = r->b + ac[a], t->m = c[a], t->c = a;
 					}
 				}
 				x += tu[a] - tl[a] + c[a];
 			}
-			m0 += c[0];
+			m -= c[0];
 		}
 		for (a = 1, ac[0] = 0; a != 6; ++a) ac[a] = ac[a-1] + c2[a-1];
 		for (k = 0; k != n_curr; ++k) // counting sort
 			prev[ac[curr[k].c]++] = curr[k];
-		m -= m0;
 		for (a = 1, ac[0] = m; a != 6; ++a)
 			ac[a] = ac[a-1] + rope->c[a-1];
 		for (k = 0; k != n_curr; ++k) {
