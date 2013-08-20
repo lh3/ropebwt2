@@ -1,5 +1,5 @@
 CC=			gcc
-CFLAGS=		-g -Wall -O2 #-fno-inline-functions -fno-inline-functions-called-once
+CFLAGS=		-g -Wall #-O2 #-fno-inline-functions -fno-inline-functions-called-once
 DFLAGS=
 PROG=		ropebwt2
 INCLUDES=	

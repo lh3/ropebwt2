@@ -40,6 +40,20 @@ static inline int kputsn(const char *p, int l, kstring_t *s)
 	return l;
 }
 
+static inline int kputc(int c, kstring_t *s)
+{
+	if (s->l + 1 >= s->m) {
+		char *tmp;
+		s->m = s->l + 2;
+		kroundup32(s->m);
+		if ((tmp = (char*)realloc(s->s, s->m))) s->s = tmp;
+		else return EOF;
+	}
+	s->s[s->l++] = c;
+	s->s[s->l] = 0;
+	return c;
+}
+
 int main(int argc, char *argv[])
 {
 	rope_t *r6;
@@ -67,7 +81,7 @@ int main(int argc, char *argv[])
 			if (*p == 'K' || *p == 'k') x *= 1024;
 			else if (*p == 'M' || *p == 'm') x *= 1024 * 1024;
 			else if (*p == 'G' || *p == 'g') x *= 1024 * 1024 * 1024;
-			m = (int)(m * .97);
+			m = (int)(x * .97);
 		}
 
 	if (optind == argc) {
@@ -105,7 +119,10 @@ int main(int argc, char *argv[])
 			if (!m) {
 				if (flag & FLAG_RLO) rope_insert_string_rlo(r6, s);
 				else rope_insert_string_io(r6, s);
-			} else kputsn((char*)ks->seq.s, ks->seq.l, &buf);
+			} else {
+				kputsn((char*)ks->seq.s, ks->seq.l, &buf);
+				kputc(0, &buf);
+			}
 		}
 		if (flag & FLAG_REV) {
 			for (i = 0; i < l>>1; ++i) {
@@ -118,14 +135,17 @@ int main(int argc, char *argv[])
 			if (!m) {
 				if (flag & FLAG_RLO) rope_insert_string_rlo(r6, s);
 				else rope_insert_string_io(r6, s);
-			} else kputsn((char*)ks->seq.s, ks->seq.l, &buf);
+			} else {
+				kputsn((char*)ks->seq.s, ks->seq.l, &buf);
+				kputc(0, &buf);
+			}
 		}
 		if (m && buf.l >= m) {
 			rope_insert_multi(r6, buf.l, (uint8_t*)buf.s);
 			buf.l = 0;
 		}
 	}
-	if (m && buf.l >= m) rope_insert_multi(r6, buf.l, (uint8_t*)buf.s);
+	if (m && buf.l) rope_insert_multi(r6, buf.l, (uint8_t*)buf.s);
 	kseq_destroy(ks);
 	gzclose(fp);
 

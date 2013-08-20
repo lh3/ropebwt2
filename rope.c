@@ -234,84 +234,86 @@ void rope_insert_string_rlo(rope_t *rope, const uint8_t *str)
 
 typedef struct {
 	int64_t l, u;
-	int64_t b, e;
-	int64_t depth;
+	int64_t m:60, c:4;
 } elem_t;
-
-#include "ksort.h"
-#define elem_lt(a, b) ((a).l < (b).l)
-KSORT_INIT(heap, elem_t, elem_lt)
 
 typedef const uint8_t *cstr_t;
 
 void rope_insert_multi(rope_t *rope, int64_t len, const uint8_t *s)
 {
-	int64_t i, m;
+	int64_t i, m, d, n_curr, n_prev;
 	cstr_t *ptr, *sorted, p, q, end = s + len;
 	uint8_t *oracle;
-	kvec_t(elem_t) heap = { 0, 0, 0 };
+	elem_t *curr, *prev, *swap;
 	elem_t *t;
 
 	assert(len > 0 && s[len-1] == 0);
-	for (p = s; p != end; ++p) // count #sentinels
+	for (p = s, m = 0; p != end; ++p) // count #sentinels
 		if (*p == 0) ++m;
 	oracle = malloc(m);
 	ptr = malloc(m * sizeof(cstr_t));
 	sorted = malloc(m * sizeof(cstr_t));
 	for (p = q = s, i = 0; p != end; ++p) // find the start of each string
 		if (*p == 0) ptr[i++] = q, q = p + 1;
+	curr = malloc(m * sizeof(elem_t));
+	prev = malloc(m * sizeof(elem_t));
+	n_curr = n_prev = 0;
 
 	// add the first element to the heap
-	kv_pushp(elem_t, heap, &t);
-	t->l = 0, t->u = rope->c[0];
-	t->b = 0, t->e = m;
-	t->depth = 0;
+	n_prev = 0;
+	t = &prev[n_prev++];
+	t->l = 0, t->u = rope->c[0], t->m = m, t->c = 0;
 
 	// the core loop
-	while (heap.n) {
-		elem_t top = heap.a[0];
+	for (d = 0; n_prev; ++d) {
 		int a;
-		int64_t c[6], ac[6], n = top.e - top.b;
-		int64_t x, tl[6], tu[6], ac2;
+		int64_t k, b = 0, m0 = 0, ac[6], n_ptr = 0;
+		n_curr = 0;
+		for (k = 0; k != n_prev; ++k) {
+			elem_t *r = &prev[k];
+			int64_t c[6];
+			int64_t x, tl[6], tu[6];
 
-		heap.a[0] = kv_pop(heap);
-		ks_heapdown_heap(0, heap.n, heap.a);
+			memset(c, 0, 48);
+			for (i = 0; i != r->m; ++i) // loop fission
+				oracle[i] = ptr[i+b][d];
+			for (i = 0; i != r->m; ++i) // counting
+				++c[oracle[i]];
+			for (ac[0] = 0, a = 1; a != 6; ++a) // accumulative counts
+				ac[a] = ac[a-1] + c[a-1];
+			for (i = 0; i != r->m; ++i) // counting sort
+				sorted[ac[oracle[i]]++] = ptr[i+b];
+			memcpy(ptr + n_ptr, sorted + c[0], r->m * sizeof(cstr_t));
 
-		memset(c, 0, 48);
-		for (i = 0; i != n; ++i) // loop fission
-			oracle[i] = ptr[i][top.depth];
-		for (i = 0; i != n; ++i) // counting
-			++c[oracle[i]];
-		for (ac[0] = 0, a = 1; a != 6; ++a) // accumulative counts
-			ac[i] = ac[i-1] + c[i-1];
-		for (i = 0; i != n; ++i) // counting sort
-			sorted[ac[oracle[i]]++] = ptr[i];
-		memcpy(ptr + top.b, sorted, n * sizeof(cstr_t));
-		for (ac[0] = 0, a = 1; a != 6; ++a) // recalculate accumulative counts
-			ac[i] = ac[i-1] + c[i-1];
-
-		rope_rank2a(rope, top.l, top.u, tl, tu);
-		for (a = 0, x = top.l, ac2 = 0; a != 6; ++a) {
-			if (c[a]) {
-				rope_insert_run(rope, x, a, c[a]);
-				if (a) {
-					kv_pushp(elem_t, heap, &t);
-					t->l = ac2 + tl[a] + m;
-					t->u = ac2 + tu[a] + m;
-					t->b = ac[a], t->e = ac[a] + c[a];
-					t->depth = top.depth + 1;
-					ks_heapup_heap(heap.n, heap.a);
+			rope_rank2a(rope, r->l, r->u, tl, tu);
+			for (a = 0, x = r->l; a != 6; ++a) {
+				if (c[a]) {
+					rope_insert_run(rope, x, a, c[a]);
+					rle_print((uint8_t*)rope->root->p, 1);
+					if (a) {
+						t = &curr[n_curr++];
+						t->l = tl[a], t->u = tu[a], t->m = c[a], t->c = a;
+					}
 				}
+				x += tu[a] - tl[a] + c[a];
 			}
-			ac2 += rope->c[a];
-			x += tu[a] - tl[a] + c[a];
+			m0 += c[0]; b += r->m;
+			n_ptr += c[1] + c[2] + c[3] + c[4] + c[5];
 		}
-		m -= c[0];
+		m -= m0;
+		for (a = 1, ac[0] = m; a != 6; ++a)
+			ac[a] = ac[a-1] + rope->c[a-1];
+		for (k = 0; k != n_curr; ++k) {
+			elem_t *r = &curr[k];
+			r->l += ac[r->c]; r->u += ac[r->c];
+			fprintf(stderr, "[%lld,%lld)\t%lld\n", r->l, r->u, r->m);
+		}
+		swap = curr; curr = prev; prev = swap;
+		n_prev = n_curr;
 	}
 
-	free(sorted);
-	free(ptr);
-	free(oracle);
+	free(curr); free(prev);
+	free(sorted); free(ptr); free(oracle);
 }
 
 /*********************
