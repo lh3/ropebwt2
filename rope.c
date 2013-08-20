@@ -287,7 +287,8 @@ void rope_insert_multi(rope_t *rope, int64_t len, const uint8_t *s)
 			rope_rank2a(rope, r->l, r->u, tl, tu);
 			for (a = 0, x = r->l; a != 6; ++a) {
 				if (c[a]) {
-					rope_insert_run(rope, x, a, c[a]);
+					//rope_insert_run(rope, x, a, c[a]);
+					int64_t j; for (j = 0; j < c[a]; ++j) rope_insert_run(rope, x, a, 1);
 					//rle_print((uint8_t*)rope->root->p, 1);
 					if (a) {
 						++c2[a];
