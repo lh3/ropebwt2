@@ -3,11 +3,26 @@
 
 #include <stdint.h>
 
-struct rope_s;
-typedef struct rope_s rope_t;
+#define ROPE_MAX_DEPTH 80
 
-struct ropeitr_s;
-typedef struct ropeitr_s ropeitr_t;
+typedef struct rpnode_s {
+	struct rpnode_s *p; // child; at the bottom level, $p points to a string with the first 4 bytes giving the number of runs (#runs)
+	uint64_t l:54, n:9, is_bottom:1; // $n and $is_bottom are only set for the first node in a bucket
+	int64_t c[6]; // marginal counts
+} rpnode_t;
+
+typedef struct {
+	int max_nodes, block_len; // both MUST BE even numbers
+	int64_t c[6]; // marginal counts
+	rpnode_t *root;
+	void *node, *leaf; // memory pool
+} rope_t;
+
+typedef struct {
+	const rope_t *rope;
+	const rpnode_t *pa[ROPE_MAX_DEPTH];
+	int k, ia[ROPE_MAX_DEPTH];
+} rpitr_t;
 
 #ifdef __cplusplus
 extern "C" {
@@ -23,8 +38,8 @@ extern "C" {
 	void rope_insert_string_rlo(rope_t *rope, const uint8_t *str);
 	void rope_insert_multi(rope_t *rope, int64_t len, const uint8_t *s);
 
-	ropeitr_t *rope_itr_init(const rope_t *rope);
-	const uint8_t *rope_itr_next(ropeitr_t *i, int *n);
+	rpitr_t *rope_itr_first(const rope_t *rope);
+	const uint8_t *rope_itr_next_block(rpitr_t *i, int *n);
 	
 #ifdef __cplusplus
 }
