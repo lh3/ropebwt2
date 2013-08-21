@@ -324,20 +324,20 @@ void rope_itr_first(const rope_t *rope, rpitr_t *i)
 {
 	memset(i, 0, sizeof(rpitr_t));
 	i->rope = rope;
-	for (i->pa[i->k] = rope->root; !i->pa[i->k]->is_bottom;) // descend to the leftmost leaf
-		++i->k, i->pa[i->k] = i->pa[i->k - 1]->p;
+	for (i->pa[i->d] = rope->root; !i->pa[i->d]->is_bottom;) // descend to the leftmost leaf
+		++i->d, i->pa[i->d] = i->pa[i->d - 1]->p;
 }
 
 const uint8_t *rope_itr_next_block(rpitr_t *i, int *n)
 {
 	const uint8_t *ret;
-	assert(i->k < ROPE_MAX_DEPTH); // a B+ tree should not be that tall
-	if (i->k < 0) return 0;
+	assert(i->d < ROPE_MAX_DEPTH); // a B+ tree should not be that tall
+	if (i->d < 0) return 0;
 	*n = i->rope->block_len;
-	ret = (uint8_t*)i->pa[i->k][i->ia[i->k]].p;
-	while (i->k >= 0 && ++i->ia[i->k] == i->pa[i->k]->n) i->ia[i->k--] = 0; // backtracking
-	if (i->k >= 0)
-		while (!i->pa[i->k]->is_bottom) // descend to the leftmost leaf
-			++i->k, i->pa[i->k] = i->pa[i->k - 1][i->ia[i->k - 1]].p;
+	ret = (uint8_t*)i->pa[i->d][i->ia[i->d]].p;
+	while (i->d >= 0 && ++i->ia[i->d] == i->pa[i->d]->n) i->ia[i->d--] = 0; // backtracking
+	if (i->d >= 0)
+		while (!i->pa[i->d]->is_bottom) // descend to the leftmost leaf
+			++i->d, i->pa[i->d] = i->pa[i->d - 1][i->ia[i->d - 1]].p;
 	return ret;
 }

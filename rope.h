@@ -19,9 +19,10 @@ typedef struct {
 } rope_t;
 
 typedef struct {
-	const rope_t *rope;
-	const rpnode_t *pa[ROPE_MAX_DEPTH];
-	int k, ia[ROPE_MAX_DEPTH];
+	const rope_t *rope; // the rope
+	const rpnode_t *pa[ROPE_MAX_DEPTH]; // parent nodes
+	int ia[ROPE_MAX_DEPTH]; // index in the parent nodes
+	int d; // the current depth in the B+-tree
 } rpitr_t;
 
 #ifdef __cplusplus
