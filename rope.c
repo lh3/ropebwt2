@@ -320,14 +320,12 @@ void rope_insert_multi(rope_t *rope, int64_t len, const uint8_t *s)
  *** Rope iterator ***
  *********************/
 
-rpitr_t *rope_itr_first(const rope_t *rope)
+void rope_itr_first(const rope_t *rope, rpitr_t *i)
 {
-	rpitr_t *i;
-	i = calloc(1, sizeof(rpitr_t));
+	memset(i, 0, sizeof(rpitr_t));
 	i->rope = rope;
 	for (i->pa[i->k] = rope->root; !i->pa[i->k]->is_bottom;) // descend to the leftmost leaf
 		++i->k, i->pa[i->k] = i->pa[i->k - 1]->p;
-	return i;
 }
 
 const uint8_t *rope_itr_next_block(rpitr_t *i, int *n)

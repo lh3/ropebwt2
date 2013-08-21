@@ -150,11 +150,11 @@ int main(int argc, char *argv[])
 	gzclose(fp);
 
 	{
-		rpitr_t *itr;
+		rpitr_t itr;
 		int len;
 		const uint8_t *block;
-		itr = rope_itr_first(r6);
-		while ((block = rope_itr_next_block(itr, &len)) != 0) {
+		rope_itr_first(r6, &itr);
+		while ((block = rope_itr_next_block(&itr, &len)) != 0) {
 			const uint8_t *q = block + 2, *end = block + 2 + *rle_nptr(block);
 			while (q < end) {
 				int c = 0;
@@ -164,7 +164,6 @@ int main(int argc, char *argv[])
 			}
 		}
 		putchar('\n');
-		free(itr);
 	}
 	rope_destroy(r6); fclose(out);
 	return 0;
