@@ -6,7 +6,7 @@
 #define ROPE_MAX_DEPTH 80
 
 typedef struct rpnode_s {
-	struct rpnode_s *p; // child; at the bottom level, $p points to a string with the first 4 bytes giving the number of runs (#runs)
+	struct rpnode_s *p; // child; at the bottom level, $p points to a string with the first 2 bytes giving the number of runs (#runs)
 	uint64_t l:54, n:9, is_bottom:1; // $n and $is_bottom are only set for the first node in a bucket
 	int64_t c[6]; // marginal counts
 } rpnode_t;
