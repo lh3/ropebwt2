@@ -290,8 +290,7 @@ void rope_insert_multi(rope_t *rope, int64_t len, const uint8_t *s)
 					if (a) {
 						++c2[a];
 						t = &curr[n_curr++];
-						t->l = r->l == r->u? y : tl[a];
-						t->u = r->l == r->u? y : tu[a];
+						t->l = y, t->u = y + (tu[a] - tl[a]);
 						t->b = r->b + ac[a], t->m = c[a], t->c = a;
 					}
 				}
