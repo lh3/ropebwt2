@@ -23,6 +23,7 @@ static unsigned char seq_nt6_table[128] = {
 #define FLAG_ODD 0x4
 #define FLAG_BIN 0x8
 #define FLAG_TREE 0x10
+#define FLAG_COMP 0x20
 #define FLAG_RLO 0x80
 
 static inline int kputsn(const char *p, int l, kstring_t *s)
@@ -64,7 +65,7 @@ int main(int argc, char *argv[])
 	int flag = FLAG_FOR | FLAG_REV | FLAG_ODD;
 	kstring_t buf = { 0, 0, 0 };
 
-	while ((c = getopt(argc, argv, "TFRObso:l:n:m:")) >= 0)
+	while ((c = getopt(argc, argv, "TFROrbso:l:n:m:")) >= 0)
 		if (c == 'o') out = fopen(optarg, "wb");
 		else if (c == 'F') flag &= ~FLAG_FOR;
 		else if (c == 'R') flag &= ~FLAG_REV;
@@ -72,6 +73,7 @@ int main(int argc, char *argv[])
 		else if (c == 'T') flag |= FLAG_TREE;
 		else if (c == 'b') flag |= FLAG_BIN;
 		else if (c == 's') flag |= FLAG_RLO;
+		else if (c == 'r') flag |= FLAG_RLO | FLAG_COMP;
 		else if (c == 'l') block_len = atoi(optarg);
 		else if (c == 'n') max_nodes= atoi(optarg);
 		else if (c == 'm') {
@@ -92,6 +94,7 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "         -o FILE    output file [stdout]\n");
 		fprintf(stderr, "         -b         binary output (5+3 runs starting after 4 bytes)\n");
 		fprintf(stderr, "         -s         build BWT in RLO\n");
+		fprintf(stderr, "         -r         in the RLO mode, complement input sequences (force -s)\n");
 		fprintf(stderr, "         -F         skip forward strand\n");
 		fprintf(stderr, "         -R         skip reverse strand\n");
 		fprintf(stderr, "         -O         suppress end trimming when forward==reverse\n\n");
@@ -117,7 +120,7 @@ int main(int argc, char *argv[])
 		}
 		if (flag & FLAG_FOR) {
 			if (!m) {
-				if (flag & FLAG_RLO) rope_insert_string_rlo(r6, s);
+				if (flag & FLAG_RLO) rope_insert_string_rlo(r6, s, flag&FLAG_COMP);
 				else rope_insert_string_io(r6, s);
 			} else {
 				kputsn((char*)ks->seq.s, ks->seq.l, &buf);
@@ -133,7 +136,7 @@ int main(int argc, char *argv[])
 			}
 			if (l&1) s[i] = (s[i] >= 1 && s[i] <= 4)? 5 - s[i] : s[i];
 			if (!m) {
-				if (flag & FLAG_RLO) rope_insert_string_rlo(r6, s);
+				if (flag & FLAG_RLO) rope_insert_string_rlo(r6, s, flag&FLAG_COMP);
 				else rope_insert_string_io(r6, s);
 			} else {
 				kputsn((char*)ks->seq.s, ks->seq.l, &buf);

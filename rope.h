@@ -36,7 +36,7 @@ extern "C" {
 	#define rope_rank1a(rope, x, cx) rope_rank2a(rope, x, -1, cx, 0)
 
 	void rope_insert_string_io(rope_t *rope, const uint8_t *str);
-	void rope_insert_string_rlo(rope_t *rope, const uint8_t *str);
+	void rope_insert_string_rlo(rope_t *rope, const uint8_t *str, int is_comp);
 	void rope_insert_multi(rope_t *rope, int64_t len, const uint8_t *s);
 
 	void rope_itr_first(const rope_t *rope, rpitr_t *i);

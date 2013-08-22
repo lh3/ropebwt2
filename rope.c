@@ -197,7 +197,7 @@ void rope_rank2a(const rope_t *rope, int64_t x, int64_t y, int64_t *cx, int64_t 
 	}
 }
 
-void rope_insert_string_rlo(rope_t *rope, const uint8_t *str)
+void rope_insert_string_rlo(rope_t *rope, const uint8_t *str, int is_comp)
 {
 	int64_t tl[6], tu[6], l, u;
 	const uint8_t *p;
@@ -207,7 +207,8 @@ void rope_insert_string_rlo(rope_t *rope, const uint8_t *str)
 		if (l != u) {
 			int64_t cnt;
 			rope_rank2a(rope, l, u, tl, tu);
-			for (a = 0; a < c; ++a) l += tu[a] - tl[a];
+			if (is_comp) for (a = 5; a > c; --a) l += tu[a] - tl[a];
+			else for (a = 0; a < c; ++a) l += tu[a] - tl[a];
 			rope_insert_run(rope, l, c, 1);
 			for (a = 0, cnt = 0; a < c; ++a) cnt += rope->c[a];
 			l = cnt + tl[c] + 1; u = cnt + tu[c] + 1;
