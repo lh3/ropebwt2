@@ -5,6 +5,7 @@
 #include "rle.h"
 #include "rope.h"
 #include "kseq.h"
+#include "bcr.h"
 KSEQ_INIT(gzFile, gzread)
 
 static unsigned char seq_nt6_table[128] = {
@@ -64,6 +65,7 @@ int main(int argc, char *argv[])
 	int c, i, block_len = 512, max_nodes = 64, m = 0;
 	int flag = FLAG_FOR | FLAG_REV | FLAG_ODD;
 	kstring_t buf = { 0, 0, 0 };
+	bcr_t *bcr = 0;
 
 	while ((c = getopt(argc, argv, "TFROrbso:l:n:m:")) >= 0)
 		if (c == 'o') out = fopen(optarg, "wb");
@@ -101,6 +103,7 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
+	bcr = bcr_init(max_nodes, block_len);
 	r6 = rope_init(max_nodes, block_len);
 	fp = strcmp(argv[optind], "-")? gzopen(argv[optind], "rb") : gzdopen(fileno(stdin), "rb");
 	ks = kseq_init(fp);
@@ -144,15 +147,15 @@ int main(int argc, char *argv[])
 			}
 		}
 		if (m && buf.l >= m) {
-			rope_insert_multi(r6, buf.l, (uint8_t*)buf.s);
+			bcr_insert(bcr, buf.l, (uint8_t*)buf.s, BCR_F_RLO);
 			buf.l = 0;
 		}
 	}
-	if (m && buf.l) rope_insert_multi(r6, buf.l, (uint8_t*)buf.s);
+	if (m && buf.l) bcr_insert(bcr, buf.l, (uint8_t*)buf.s, BCR_F_RLO);
 	kseq_destroy(ks);
 	gzclose(fp);
 
-	{
+	if (!m) {
 		rpitr_t itr;
 		int len;
 		const uint8_t *block;
@@ -167,7 +170,8 @@ int main(int argc, char *argv[])
 			}
 		}
 		putchar('\n');
-	}
-	rope_destroy(r6); fclose(out);
+		rope_destroy(r6);
+	} else bcr_print(bcr);
+	fclose(out);
 	return 0;
 }
