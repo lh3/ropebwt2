@@ -264,18 +264,21 @@ void rope_insert_multi(rope_t *rope, int64_t len, const uint8_t *s)
 		memset(c2, 0, 48);
 		for (k = 0; k != n_prev; ++k) {
 			elem_t *r = &prev[k];
+			for (i = 0; i != r->m; ++i)
+				oracle[i + r->b] = ptr[i + r->b][d];
+		}
+		for (k = 0; k != n_prev; ++k) {
+			elem_t *r = &prev[k];
 			int64_t c[6];
 			int64_t x, tl[6], tu[6];
 
 			memset(c, 0, 48);
-			for (i = 0; i != r->m; ++i) // loop fission
-				oracle[i] = ptr[i + r->b][d];
 			for (i = 0; i != r->m; ++i) // counting
-				++c[oracle[i]];
+				++c[oracle[i + r->b]];
 			for (ac[0] = 0, a = 1; a != 6; ++a) // accumulative counts
 				ac[a] = ac[a-1] + c[a-1];
 			for (i = 0; i != r->m; ++i) // counting sort
-				sorted[ac[oracle[i]]++] = ptr[i + r->b];
+				sorted[ac[oracle[i + r->b]]++] = ptr[i + r->b];
 			memcpy(ptr + r->b, sorted, r->m * sizeof(cstr_t));
 			for (a = 0; a != 6; ++a) ac[a] -= c[a];
 
@@ -287,7 +290,6 @@ void rope_insert_multi(rope_t *rope, int64_t len, const uint8_t *s)
 				if (c[a]) {
 					int64_t y;
 					y = rope_insert_run(rope, x, a, c[a]);
-					//rle_print((uint8_t*)rope->root->p, 1);
 					if (a) {
 						++c2[a];
 						t = &curr[n_curr++];
@@ -307,7 +309,6 @@ void rope_insert_multi(rope_t *rope, int64_t len, const uint8_t *s)
 		for (k = 0; k != n_curr; ++k) {
 			elem_t *r = &prev[k];
 			r->l += ac[r->c]; r->u += ac[r->c];
-			//printf("%c%ld:[%lld,%lld)\n", "$ACGTN"[r->c], (long)r->m, r->l, r->u);
 		}
 		n_prev = n_curr;
 	}
