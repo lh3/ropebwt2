@@ -280,7 +280,7 @@ void bcr_insert(bcr_t *b, int64_t len, const uint8_t *s, int flag)
 	}
 	a = malloc(b->m * 16);
 	for (k = 0; k < b->m; ++k) // keep the sequence lengths in the $a array: reduce memory and cache misses
-		a[k].u = (flag&BCR_F_RLO)? 0 : k<<3, a[k].v = k;
+		a[k].u = (flag&BCR_F_RLO)? 0 : (k + b->ac[1]) << 3, a[k].v = k;
 	
 	for (pos = 0; pos <= max_len; ++pos) { // "==" to add the sentinels
 		a = set_bucket(b, a, pos);

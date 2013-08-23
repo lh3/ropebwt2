@@ -147,11 +147,11 @@ int main(int argc, char *argv[])
 			}
 		}
 		if (m && buf.l >= m) {
-			bcr_insert(bcr, buf.l, (uint8_t*)buf.s, BCR_F_RLO);
+			bcr_insert(bcr, buf.l, (uint8_t*)buf.s, (flag&FLAG_RLO? BCR_F_RLO:0)|(flag&FLAG_COMP? BCR_F_COMP:0));
 			buf.l = 0;
 		}
 	}
-	if (m && buf.l) bcr_insert(bcr, buf.l, (uint8_t*)buf.s, BCR_F_RLO);
+	if (m && buf.l) bcr_insert(bcr, buf.l, (uint8_t*)buf.s, (flag&FLAG_RLO? BCR_F_RLO:0)|(flag&FLAG_COMP? BCR_F_COMP:0));
 	kseq_destroy(ks);
 	gzclose(fp);
 
@@ -171,7 +171,10 @@ int main(int argc, char *argv[])
 		}
 		putchar('\n');
 		rope_destroy(r6);
-	} else bcr_print(bcr);
+	} else {
+		bcr_print(bcr);
+		bcr_destroy(bcr);
+	}
 	fclose(out);
 	return 0;
 }
