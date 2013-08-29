@@ -83,7 +83,7 @@ int main(int argc, char *argv[])
 			if (*p == 'K' || *p == 'k') x *= 1024;
 			else if (*p == 'M' || *p == 'm') x *= 1024 * 1024;
 			else if (*p == 'G' || *p == 'g') x *= 1024 * 1024 * 1024;
-			m = (int)(x * .97);
+			m = (int)(x * .97) + 1;
 		}
 
 	if (optind == argc) {
@@ -144,11 +144,11 @@ int main(int argc, char *argv[])
 			}
 		}
 		if (m && buf.l >= m) {
-			rope_insert_multi(r6, buf.l, (uint8_t*)buf.s);
+			rope_insert_multi(r6, buf.l, (uint8_t*)buf.s, flag&FLAG_COMP);
 			buf.l = 0;
 		}
 	}
-	if (m && buf.l) rope_insert_multi(r6, buf.l, (uint8_t*)buf.s);
+	if (m && buf.l) rope_insert_multi(r6, buf.l, (uint8_t*)buf.s, flag&FLAG_COMP);
 	kseq_destroy(ks);
 	gzclose(fp);
 

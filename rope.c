@@ -279,7 +279,9 @@ void rs_sort(rstype_t *beg, rstype_t *end, int n_bits, int s) // in-place radix 
 
 typedef const uint8_t *cstr_t;
 
-void rope_insert_multi(rope_t *rope, int64_t len, const uint8_t *s)
+#define rope_comp6(c) ((c) >= 1 && (c) <= 4? 5 - (c) : (c))
+
+void rope_insert_multi(rope_t *rope, int64_t len, const uint8_t *s, int is_comp)
 {
 	int64_t k, m, d;
 	cstr_t *ptr;
@@ -304,28 +306,55 @@ void rope_insert_multi(rope_t *rope, int64_t len, const uint8_t *s)
 		int b, l;
 		for (k = 0; k != m; ++k) { // set the base to insert
 			triple64_t *p = &a[k];
-			p->u = (p->u & ~7ULL) | ptr[p->w][d];
+			int c = ptr[p->w][d];
+			c = is_comp? rope_comp6(c) : c;
+			p->u = (p->u & ~7ULL) | c;
 			max = max > p->u? max : p->u;
 		}
 		for (k = max, l = 0; k; k >>= 1, ++l);
 		rs_sort(a, &a[m], 8, l > 7? l - 7 : 0);
+		if (is_comp) { // complement back
+			for (k = 0; k != m; ++k) {
+				triple64_t *p = &a[k];
+				int c = p->u & 7;
+				c = rope_comp6(c);
+				p->u = (p->u & ~7ULL) | c;
+			}
+		}
 		for (k = 1, beg = 0; k <= m; ++k) {
 			if (k == m || a[k].u>>3 != a[k-1].u>>3) {
 				int64_t x, i, l = a[beg].u>>3, u = a[beg].v, tl[6], tu[6];
-				memset(c, 0, 48);
-				for (i = beg; i < k; ++i) ++c[a[i].u&7];
 				if (l == u) {
 					memset(tl, 0, 48);
 					memset(tu, 0, 48);
 				} else rope_rank2a(rope, l, u, tl, tu);
+				memset(c, 0, 48);
+				for (i = beg; i < k; ++i) ++c[a[i].u&7];
 				if (c[0]) rope_insert_run(rope, l, 0, c[0]);
-				for (b = 1, x = l + c[0] + (tu[0] - tl[0]); b != 6; ++b) {
-					int64_t size = tu[b] - tl[b];
-					if (c[b]) {
-						tl[b] = rope_insert_run(rope, x, b, c[b]);
-						tu[b] = tl[b] + size;
+				x =  l + c[0] + (tu[0] - tl[0]);
+				if (!is_comp) {
+					for (b = 1; b < 5; ++b) {
+						int64_t size = tu[b] - tl[b];
+						if (c[b]) {
+							tl[b] = rope_insert_run(rope, x, b, c[b]);
+							tu[b] = tl[b] + size;
+						}
+						x += c[b] + size;
 					}
-					x += c[b] + size;
+				} else {
+					for (b = 4; b >= 1; --b) {
+						int64_t size = tu[b] - tl[b];
+						if (c[b]) {
+							tl[b] = rope_insert_run(rope, x, b, c[b]);
+							tu[b] = tl[b] + size;
+						}
+						x += c[b] + size;
+					}
+				}
+				if (c[5]) {
+					tu[5] -= tl[5];
+					tl[5] = rope_insert_run(rope, x, 5, c[5]);
+					tu[5] += tl[5];
 				}
 				for (i = beg; i < k; ++i) {
 					triple64_t *p = &a[i];

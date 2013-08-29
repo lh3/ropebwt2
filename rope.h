@@ -37,7 +37,7 @@ extern "C" {
 
 	void rope_insert_string_io(rope_t *rope, const uint8_t *str);
 	void rope_insert_string_rlo(rope_t *rope, const uint8_t *str, int is_comp);
-	void rope_insert_multi(rope_t *rope, int64_t len, const uint8_t *s);
+	void rope_insert_multi(rope_t *rope, int64_t len, const uint8_t *s, int is_comp);
 
 	void rope_itr_first(const rope_t *rope, rpitr_t *i);
 	const uint8_t *rope_itr_next_block(rpitr_t *i, int *n);
