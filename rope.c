@@ -306,21 +306,11 @@ void rope_insert_multi(rope_t *rope, int64_t len, const uint8_t *s, int is_comp)
 		int b, l;
 		for (k = 0; k != m; ++k) { // set the base to insert
 			triple64_t *p = &a[k];
-			int c = ptr[p->w][d];
-			c = is_comp? rope_comp6(c) : c;
-			p->u = (p->u & ~7ULL) | c;
+			p->u = (p->u & ~7ULL) | ptr[p->w][d];
 			max = max > p->u? max : p->u;
 		}
 		for (k = max, l = 0; k; k >>= 1, ++l);
 		rs_sort(a, &a[m], 8, l > 7? l - 7 : 0);
-		if (is_comp) { // complement back
-			for (k = 0; k != m; ++k) {
-				triple64_t *p = &a[k];
-				int c = p->u & 7;
-				c = rope_comp6(c);
-				p->u = (p->u & ~7ULL) | c;
-			}
-		}
 		for (k = 1, beg = 0; k <= m; ++k) {
 			if (k == m || a[k].u>>3 != a[k-1].u>>3) {
 				int64_t x, i, l = a[beg].u>>3, u = a[beg].v, tl[6], tu[6];
