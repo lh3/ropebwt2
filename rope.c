@@ -238,7 +238,7 @@ typedef struct {
 	rstype_t *b, *e;
 } rsbucket_t;
 
-void rs_sort(rstype_t *beg, rstype_t *end, int n_bits, int s)
+void rs_sort(rstype_t *beg, rstype_t *end, int n_bits, int s) // in-place radix sort
 {
 	rstype_t *i;
 	int size = 1<<n_bits, m = size - 1;
@@ -320,10 +320,11 @@ void rope_insert_multi(rope_t *rope, int64_t len, const uint8_t *s)
 				} else rope_rank2a(rope, l, u, tl, tu);
 				if (c[0]) rope_insert_run(rope, l, 0, c[0]);
 				for (b = 1, x = l + c[0] + (tu[0] - tl[0]); b != 6; ++b) {
-					int64_t y, size = tu[b] - tl[b];
-					if (c[b] == 0) continue;
-					y = rope_insert_run(rope, x, b, c[b]);
-					tl[b] = y, tu[b] = y + size;
+					int64_t size = tu[b] - tl[b];
+					if (c[b]) {
+						tl[b] = rope_insert_run(rope, x, b, c[b]);
+						tu[b] = tl[b] + size;
+					}
 					x += c[b] + size;
 				}
 				for (i = beg; i < k; ++i) {
