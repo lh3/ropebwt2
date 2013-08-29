@@ -226,7 +226,8 @@ void rope_insert_string_rlo(rope_t *rope, const uint8_t *str, int is_comp)
  *******************************/
 
 typedef struct {
-	uint64_t u, v, w;
+	uint64_t u, v;
+	uint64_t i:61, c:3;
 } triple64_t;
 
 #define rstype_t triple64_t
@@ -299,14 +300,14 @@ void rope_insert_multi(rope_t *rope, int64_t len, const uint8_t *s, int is_comp)
 
 	a = malloc(m * sizeof(triple64_t));
 	for (k = 0; k != m; ++k)
-		a[k].u = 0, a[k].v = rope->c[0], a[k].w = k;
+		a[k].u = 0, a[k].v = rope->c[0], a[k].i = k, a[k].c = 0;
 
 	for (d = 0; m; ++d) {
 		int64_t beg, max = 0, c[6], i;
 		int b, l;
 		for (k = 0; k != m; ++k) { // set the base to insert
 			triple64_t *p = &a[k];
-			p->u = (p->u & ~7ULL) | ptr[p->w][d];
+			p->c = ptr[p->i][d];
 			max = max > p->u? max : p->u;
 		}
 		for (k = max, l = 0; k; k >>= 1, ++l);
@@ -314,32 +315,24 @@ void rope_insert_multi(rope_t *rope, int64_t len, const uint8_t *s, int is_comp)
 		for (k = 1, beg = 0; k <= m; ++k) {
 			if (k == m || a[k].u>>3 != a[k-1].u>>3) {
 				int64_t x, i, l = a[beg].u>>3, u = a[beg].v, tl[6], tu[6];
+				int start, end, step;
 				if (l == u) {
 					memset(tl, 0, 48);
 					memset(tu, 0, 48);
 				} else rope_rank2a(rope, l, u, tl, tu);
 				memset(c, 0, 48);
-				for (i = beg; i < k; ++i) ++c[a[i].u&7];
+				for (i = beg; i < k; ++i) ++c[a[i].c];
 				if (c[0]) rope_insert_run(rope, l, 0, c[0]);
 				x =  l + c[0] + (tu[0] - tl[0]);
-				if (!is_comp) {
-					for (b = 1; b < 5; ++b) {
-						int64_t size = tu[b] - tl[b];
-						if (c[b]) {
-							tl[b] = rope_insert_run(rope, x, b, c[b]);
-							tu[b] = tl[b] + size;
-						}
-						x += c[b] + size;
+				if (is_comp) start = 4, end = 0, step = -1;
+				else start = 1, end = 5, step = 1;
+				for (b = start; b != end; b += step) {
+					int64_t size = tu[b] - tl[b];
+					if (c[b]) {
+						tl[b] = rope_insert_run(rope, x, b, c[b]);
+						tu[b] = tl[b] + size;
 					}
-				} else {
-					for (b = 4; b >= 1; --b) {
-						int64_t size = tu[b] - tl[b];
-						if (c[b]) {
-							tl[b] = rope_insert_run(rope, x, b, c[b]);
-							tu[b] = tl[b] + size;
-						}
-						x += c[b] + size;
-					}
+					x += c[b] + size;
 				}
 				if (c[5]) {
 					tu[5] -= tl[5];
@@ -348,21 +341,21 @@ void rope_insert_multi(rope_t *rope, int64_t len, const uint8_t *s, int is_comp)
 				}
 				for (i = beg; i < k; ++i) {
 					triple64_t *p = &a[i];
-					p->u = tl[p->u&7]<<3 | (p->u&7);
-					p->v = tu[p->u&7];
+					p->u = tl[p->c]<<3 | p->c;
+					p->v = tu[p->c];
 				}
 				beg = k;
 			}
 		}
 
 		for (k = i = 0; k != m; ++k) // squeeze out sentinels
-			if (a[k].u&7) a[i++] = a[k];
+			if (a[k].c) a[i++] = a[k];
 		m = i;
 		for (b = 1, c[0] = m; b != 6; ++b)
 			c[b] = c[b-1] + rope->c[b-1];
 		for (k = 0; k != m; ++k) {
 			triple64_t *p = &a[k];
-			p->u += c[p->u&7]<<3; p->v += c[p->u&7];
+			p->u += c[p->c]<<3; p->v += c[p->c];
 		}
 	}
 
