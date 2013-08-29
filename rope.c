@@ -226,95 +226,127 @@ void rope_insert_string_rlo(rope_t *rope, const uint8_t *str, int is_comp)
  *******************************/
 
 typedef struct {
-	int64_t l, u, b, m:60, c:4;
-} elem_t;
+	uint64_t u, v, w;
+} triple64_t;
+
+#define rstype_t triple64_t
+#define rskey(x) ((x).u)
+
+#define RS_MIN_SIZE 64
+
+typedef struct {
+	rstype_t *b, *e;
+} rsbucket_t;
+
+void rs_sort(rstype_t *beg, rstype_t *end, int n_bits, int s)
+{
+	rstype_t *i;
+	int size = 1<<n_bits, m = size - 1;
+	rsbucket_t *k, b[size], *be = b + size;
+
+	for (k = b; k != be; ++k) k->b = k->e = beg;
+	for (i = beg; i != end; ++i) ++b[rskey(*i)>>s&m].e; // count radix
+	for (k = b + 1; k != be; ++k) // set start and end of each bucket
+		k->e += (k-1)->e - beg, k->b = (k-1)->e;
+	for (k = b; k != be;) { // in-place classification based on radix
+		if (k->b != k->e) { // the bucket is not full
+			rsbucket_t *l;
+			if ((l = b + (rskey(*k->b)>>s&m)) != k) { // destination different
+				rstype_t tmp = *k->b, swap;
+				do { // swap until we find an element in $k
+					swap = tmp; tmp = *l->b; *l->b++ = swap;
+					l = b + (rskey(tmp)>>s&m);
+				} while (l != k);
+				*k->b++ = tmp;
+			} else ++k->b;
+		} else ++k;
+	}
+	for (b->b = beg, k = b + 1; k != be; ++k) k->b = (k-1)->e; // reset k->b
+	if (s) { // if $s is non-zero, we need to sort buckets
+		s = s > n_bits? s - n_bits : 0;
+		for (k = b; k != be; ++k)
+			if (k->e - k->b > RS_MIN_SIZE) rs_sort(k->b, k->e, n_bits, s);
+			else if (k->e - k->b > 1) // then use an insertion sort
+				for (i = k->b + 1; i < k->e; ++i)
+					if (rskey(*i) < rskey(*(i - 1))) {
+						rstype_t *j, tmp = *i;
+						for (j = i; j > k->b && rskey(tmp) < rskey(*(j-1)); --j)
+							*j = *(j - 1);
+						*j = tmp;
+					}
+	}
+}
 
 typedef const uint8_t *cstr_t;
 
 void rope_insert_multi(rope_t *rope, int64_t len, const uint8_t *s)
 {
-	int64_t i, m, d, n_curr, n_prev;
-	cstr_t *ptr, *sorted, p, q, end = s + len;
-	uint8_t *oracle;
-	elem_t *curr, *prev;
-	elem_t *t;
+	int64_t k, m, d;
+	cstr_t *ptr;
+	triple64_t *a;
 
 	assert(len > 0 && s[len-1] == 0);
-	for (p = s, m = 0; p != end; ++p) // count #sentinels
-		if (*p == 0) ++m;
-	oracle = malloc(m);
-	ptr = malloc(m * sizeof(cstr_t));
-	sorted = malloc(m * sizeof(cstr_t));
-	for (p = q = s, i = 0; p != end; ++p) // find the start of each string
-		if (*p == 0) ptr[i++] = q, q = p + 1;
-	curr = malloc(m * sizeof(elem_t));
-	prev = malloc(m * sizeof(elem_t));
-	n_curr = n_prev = 0;
-
-	// add the first element to the heap
-	n_prev = 0;
-	t = &prev[n_prev++];
-	t->l = 0, t->u = rope->c[0], t->b = 0, t->m = m, t->c = 0;
-
-	// the core loop
-	for (d = 0; n_prev; ++d) {
-		int a;
-		int64_t k, ac[6], c2[6];
-		n_curr = 0;
-		memset(c2, 0, 48);
-		for (k = 0; k != n_prev; ++k) {
-			elem_t *r = &prev[k];
-			for (i = 0; i != r->m; ++i)
-				oracle[i + r->b] = ptr[i + r->b][d];
-		}
-		for (k = 0; k != n_prev; ++k) {
-			elem_t *r = &prev[k];
-			int64_t c[6];
-			int64_t x, tl[6], tu[6];
-
-			memset(c, 0, 48);
-			for (i = 0; i != r->m; ++i) // counting
-				++c[oracle[i + r->b]];
-			for (ac[0] = 0, a = 1; a != 6; ++a) // accumulative counts
-				ac[a] = ac[a-1] + c[a-1];
-			for (i = 0; i != r->m; ++i) // counting sort
-				sorted[ac[oracle[i + r->b]]++] = ptr[i + r->b];
-			memcpy(ptr + r->b, sorted, r->m * sizeof(cstr_t));
-			for (a = 0; a != 6; ++a) ac[a] -= c[a];
-
-			if (r->l == r->u) {
-				memset(tl, 0, 48);
-				memset(tu, 0, 48);
-			} else rope_rank2a(rope, r->l, r->u, tl, tu);
-			for (a = 0, x = r->l; a != 6; ++a) {
-				if (c[a]) {
-					int64_t y;
-					y = rope_insert_run(rope, x, a, c[a]);
-					if (a) {
-						++c2[a];
-						t = &curr[n_curr++];
-						t->l = y, t->u = y + (tu[a] - tl[a]);
-						t->b = r->b + ac[a], t->m = c[a], t->c = a;
-					}
-				}
-				x += tu[a] - tl[a] + c[a];
-			}
-			m -= c[0];
-		}
-		for (a = 1, ac[0] = 0; a != 6; ++a) ac[a] = ac[a-1] + c2[a-1];
-		for (k = 0; k != n_curr; ++k) // counting sort
-			prev[ac[curr[k].c]++] = curr[k];
-		for (a = 1, ac[0] = m; a != 6; ++a)
-			ac[a] = ac[a-1] + rope->c[a-1];
-		for (k = 0; k != n_curr; ++k) {
-			elem_t *r = &prev[k];
-			r->l += ac[r->c]; r->u += ac[r->c];
-		}
-		n_prev = n_curr;
+	{ // initialize m and *ptr
+		cstr_t p, q, end = s + len;
+		for (p = s, m = 0; p != end; ++p) // count #sentinels
+			if (*p == 0) ++m;
+		ptr = malloc(m * sizeof(cstr_t));
+		for (p = q = s, k = 0; p != end; ++p) // find the start of each string
+			if (*p == 0) ptr[k++] = q, q = p + 1;
 	}
 
-	free(curr); free(prev);
-	free(sorted); free(ptr); free(oracle);
+	a = malloc(m * sizeof(triple64_t));
+	for (k = 0; k != m; ++k)
+		a[k].u = 0, a[k].v = rope->c[0], a[k].w = k;
+
+	for (d = 0; m; ++d) {
+		int64_t beg, max = 0, c[6], i;
+		int b, l;
+		for (k = 0; k != m; ++k) { // set the base to insert
+			triple64_t *p = &a[k];
+			p->u = (p->u & ~7ULL) | ptr[p->w][d];
+			max = max > p->u? max : p->u;
+		}
+		for (k = max, l = 0; k; k >>= 1, ++l);
+		rs_sort(a, &a[m], 8, l > 7? l - 7 : 0);
+		for (k = 1, beg = 0; k <= m; ++k) {
+			if (k == m || a[k].u>>3 != a[k-1].u>>3) {
+				int64_t x, i, l = a[beg].u>>3, u = a[beg].v, tl[6], tu[6];
+				memset(c, 0, 48);
+				for (i = beg; i < k; ++i) ++c[a[i].u&7];
+				if (l == u) {
+					memset(tl, 0, 48);
+					memset(tu, 0, 48);
+				} else rope_rank2a(rope, l, u, tl, tu);
+				if (c[0]) rope_insert_run(rope, l, 0, c[0]);
+				for (b = 1, x = l + c[0] + (tu[0] - tl[0]); b != 6; ++b) {
+					int64_t y, size = tu[b] - tl[b];
+					if (c[b] == 0) continue;
+					y = rope_insert_run(rope, x, b, c[b]);
+					tl[b] = y, tu[b] = y + size;
+					x += c[b] + size;
+				}
+				for (i = beg; i < k; ++i) {
+					triple64_t *p = &a[i];
+					p->u = tl[p->u&7]<<3 | (p->u&7);
+					p->v = tu[p->u&7];
+				}
+				beg = k;
+			}
+		}
+
+		for (k = i = 0; k != m; ++k) // squeeze out sentinels
+			if (a[k].u&7) a[i++] = a[k];
+		m = i;
+		for (b = 1, c[0] = m; b != 6; ++b)
+			c[b] = c[b-1] + rope->c[b-1];
+		for (k = 0; k != m; ++k) {
+			triple64_t *p = &a[k];
+			p->u += c[p->u&7]<<3; p->v += c[p->u&7];
+		}
+	}
+
+	free(ptr); free(a);
 }
 
 /*********************
