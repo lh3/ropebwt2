@@ -21,6 +21,7 @@ extern "C" {
 	void mr_destroy(mrope_t *r);
 
 	void mr_insert_string_io(mrope_t *r, const uint8_t *str);
+	void mr_insert_string_rlo(mrope_t *r, const uint8_t *str, int is_comp);
 
 	void mr_itr_first(const mrope_t *r, mritr_t *i);
 	const uint8_t *mr_itr_next_block(mritr_t *i, int *n);
