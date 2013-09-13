@@ -41,6 +41,8 @@ extern "C" {
 
 	void rope_itr_first(const rope_t *rope, rpitr_t *i);
 	const uint8_t *rope_itr_next_block(rpitr_t *i, int *n);
+
+	void rope_print_node(const rpnode_t *p);
 	
 #ifdef __cplusplus
 }

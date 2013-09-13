@@ -3,7 +3,7 @@
 #include <string.h>
 #include <unistd.h>
 #include "rle.h"
-#include "rope.h"
+#include "mrope.h"
 #include "kseq.h"
 KSEQ_INIT(gzFile, gzread)
 
@@ -57,7 +57,7 @@ static inline int kputc(int c, kstring_t *s)
 
 int main(int argc, char *argv[])
 {
-	rope_t *r6;
+	mrope_t *r6;
 	gzFile fp;
 	FILE *out = stdout;
 	kseq_t *ks;
@@ -101,7 +101,7 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	r6 = rope_init(max_nodes, block_len);
+	r6 = mr_init(max_nodes, block_len);
 	fp = strcmp(argv[optind], "-")? gzopen(argv[optind], "rb") : gzdopen(fileno(stdin), "rb");
 	ks = kseq_init(fp);
 	while (kseq_read(ks) >= 0) {
@@ -120,8 +120,8 @@ int main(int argc, char *argv[])
 		}
 		if (flag & FLAG_FOR) {
 			if (!m) {
-				if (flag & FLAG_RLO) rope_insert_string_rlo(r6, s, flag&FLAG_COMP);
-				else rope_insert_string_io(r6, s);
+				if (flag & FLAG_RLO) mr_insert_string_rlo(r6, s, flag&FLAG_COMP);
+				else mr_insert_string_io(r6, s);
 			} else {
 				kputsn((char*)ks->seq.s, ks->seq.l, &buf);
 				kputc(0, &buf);
@@ -136,28 +136,28 @@ int main(int argc, char *argv[])
 			}
 			if (l&1) s[i] = (s[i] >= 1 && s[i] <= 4)? 5 - s[i] : s[i];
 			if (!m) {
-				if (flag & FLAG_RLO) rope_insert_string_rlo(r6, s, flag&FLAG_COMP);
-				else rope_insert_string_io(r6, s);
+				if (flag & FLAG_RLO) mr_insert_string_rlo(r6, s, flag&FLAG_COMP);
+				else mr_insert_string_io(r6, s);
 			} else {
 				kputsn((char*)ks->seq.s, ks->seq.l, &buf);
 				kputc(0, &buf);
 			}
 		}
 		if (m && buf.l >= m) {
-			rope_insert_multi(r6, buf.l, (uint8_t*)buf.s, flag&FLAG_COMP);
+			mr_insert_multi(r6, buf.l, (uint8_t*)buf.s, flag&FLAG_COMP);
 			buf.l = 0;
 		}
 	}
-	if (m && buf.l) rope_insert_multi(r6, buf.l, (uint8_t*)buf.s, flag&FLAG_COMP);
+	if (m && buf.l) mr_insert_multi(r6, buf.l, (uint8_t*)buf.s, flag&FLAG_COMP);
 	kseq_destroy(ks);
 	gzclose(fp);
 
-	{
-		rpitr_t itr;
+	if (!(flag&FLAG_TREE)) {
+		mritr_t itr;
 		int len;
 		const uint8_t *block;
-		rope_itr_first(r6, &itr);
-		while ((block = rope_itr_next_block(&itr, &len)) != 0) {
+		mr_itr_first(r6, &itr);
+		while ((block = mr_itr_next_block(&itr, &len)) != 0) {
 			const uint8_t *q = block + 2, *end = block + 2 + *rle_nptr(block);
 			while (q < end) {
 				int c = 0;
@@ -167,7 +167,10 @@ int main(int argc, char *argv[])
 			}
 		}
 		putchar('\n');
+	} else {
+		for (c = 0; c < 6; ++c) rope_print_node(r6->r[c]->root);
+		putchar('\n');
 	}
-	rope_destroy(r6); fclose(out);
+	mr_destroy(r6); fclose(out);
 	return 0;
 }

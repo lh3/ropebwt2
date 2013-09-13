@@ -387,3 +387,31 @@ const uint8_t *rope_itr_next_block(rpitr_t *i, int *n)
 			++i->d, i->pa[i->d] = i->pa[i->d - 1][i->ia[i->d - 1]].p;
 	return ret;
 }
+
+void rope_print_node(const rpnode_t *p)
+{
+	if (p->is_bottom) {
+		int i;
+		putchar('(');
+		for (i = 0; i < p->n; ++i) {
+			uint8_t *block = (uint8_t*)p[i].p;
+			const uint8_t *q = block + 2, *end = block + 2 + *rle_nptr(block);
+			if (i) putchar(',');
+			while (q < end) {
+				int c = 0;
+				int64_t j, l;
+				rle_dec1(q, c, l);
+				for (j = 0; j < l; ++j) putchar("$ACGTN"[c]);
+			}
+		}
+		putchar(')');
+	} else {
+		int i;
+		putchar('(');
+		for (i = 0; i < p->n; ++i) {
+			if (i) putchar(',');
+			rope_print_node(p[i].p);
+		}
+		putchar(')');
+	}
+}

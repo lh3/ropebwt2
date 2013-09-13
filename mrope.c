@@ -105,7 +105,7 @@ static void mr_insert_multi_aux(rope_t *rope, int64_t m, triple64_t *a, int d, c
 	for (k = 0; k != m; ++k) // set the base to insert
 		a[k].c = ptr[a[k].i][d];
 	for (k = 1, beg = 0; k <= m; ++k) {
-		if (k == m || a[k].u>>3 != a[k-1].u>>3) {
+		if (k == m || a[k].u != a[k-1].u) {
 			int64_t x, i, l = a[beg].l, u = a[beg].u, tl[6], tu[6], c[6];
 			int start, end, step, b;
 			if (l == u) {
@@ -174,7 +174,7 @@ void mr_insert_multi(mrope_t *mr, int64_t len, const uint8_t *s, int is_comp)
 		memset(c, 0, 48);
 		for (k = 0; k != m; ++k) ++c[prev[k].c]; // counting
 		for (q[0] = curr, b = 1; b < 6; ++b) q[b] = q[b-1] + c[b-1];
-		for (k = 0; k != m; ++k) *q[prev[k].c]++ = prev[k];
+		for (k = 0; k != m; ++k) *q[prev[k].c]++ = prev[k]; // sort
 		for (b = 0; b < 6; ++b) q[b] -= c[b];
 
 		for (b = 0; b < 6; ++b)
