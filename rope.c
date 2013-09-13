@@ -224,7 +224,7 @@ void rope_insert_string_rlo(rope_t *rope, const uint8_t *str, int is_comp)
 /*******************************
  *** Insert multiple strings ***
  *******************************/
-
+/*
 typedef struct {
 	uint64_t u, v;
 	uint64_t i:61, c:3;
@@ -361,7 +361,7 @@ void rope_insert_multi(rope_t *rope, int64_t len, const uint8_t *s, int is_comp)
 
 	free(ptr); free(a);
 }
-
+*/
 /*********************
  *** Rope iterator ***
  *********************/
