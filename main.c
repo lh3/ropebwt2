@@ -56,6 +56,16 @@ static inline int kputc(int c, kstring_t *s)
 	return c;
 }
 
+static void liftrlimit() // increase the soft limit to hard limit
+{
+#ifdef __linux__
+	struct rlimit r;
+	getrlimit(RLIMIT_AS, &r);
+	if (r.rlim_cur < r.rlim_max) r.rlim_cur = r.rlim_max;
+	setrlimit(RLIMIT_AS, &r);
+#endif
+}
+
 int main(int argc, char *argv[])
 {
 	mrope_t *r6;
@@ -103,6 +113,7 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
+	liftrlimit();
 	r6 = mr_init(max_nodes, block_len);
 	fp = strcmp(argv[optind], "-")? gzopen(argv[optind], "rb") : gzdopen(fileno(stdin), "rb");
 	ks = kseq_init(fp);
