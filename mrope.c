@@ -146,7 +146,7 @@ static void mr_insert_multi_aux(rope_t *rope, int64_t m, triple64_t *a, int d, c
 
 void mr_insert_multi(mrope_t *mr, int64_t len, const uint8_t *s, int is_comp)
 {
-	int64_t k, m, d;
+	int64_t k, m, d, n_finished;
 	cstr_t *ptr;
 	triple64_t *a[2], *curr, *prev, *swap;
 
@@ -166,19 +166,24 @@ void mr_insert_multi(mrope_t *mr, int64_t len, const uint8_t *s, int is_comp)
 	for (k = 0; k != m; ++k)
 		prev[k].l = 0, prev[k].u = d, prev[k].i = k, prev[k].c = 0;
 
-	for (d = 0; m; ++d) {
+	for (d = 0, n_finished = 0;; ++d) {
 		int64_t c[6], ac[6], i;
 		int b;
 		triple64_t *q[6];
 
 		memset(c, 0, 48);
-		for (k = 0; k != m; ++k) ++c[prev[k].c]; // counting
-		for (q[0] = curr, b = 1; b < 6; ++b) q[b] = q[b-1] + c[b-1];
+		for (k = n_finished; k != m; ++k) ++c[prev[k].c]; // counting
+		if (d != 0 && n_finished + c[0] == m) break;
+		for (q[0] = curr + n_finished, b = 1; b < 6; ++b) q[b] = q[b-1] + c[b-1];
 		for (k = 0; k != m; ++k) *q[prev[k].c]++ = prev[k]; // sort
 		for (b = 0; b < 6; ++b) q[b] -= c[b];
 
-		for (b = 0; b < 6; ++b)
-			mr_insert_multi_aux(mr->r[b], c[b], q[b], d, ptr, is_comp);
+		if (d == 0) {
+			mr_insert_multi_aux(mr->r[0], c[0], q[0], d, ptr, is_comp);
+		} else {
+			for (b = 1; b < 6; ++b)
+				mr_insert_multi_aux(mr->r[b], c[b], q[b], d, ptr, is_comp);
+		}
 
 		memset(ac, 0, 48);
 		for (b = 1; b < 6; ++b) {
@@ -189,10 +194,6 @@ void mr_insert_multi(mrope_t *mr, int64_t len, const uint8_t *s, int is_comp)
 				p->l += ac[p->c]; p->u += ac[p->c];
 			}
 		}
-
-		for (k = i = 0; k != m; ++k)
-			if (curr[k].c) curr[i++] = curr[k];
-		m = i;
 		swap = curr, curr = prev, prev = swap;
 	}
 
