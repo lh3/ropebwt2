@@ -163,12 +163,14 @@ int main(int argc, char *argv[])
 		mr_itr_first(r6, &itr);
 		while ((block = mr_itr_next_block(&itr, &len)) != 0) {
 			const uint8_t *q = block + 2, *end = block + 2 + *rle_nptr(block);
-			while (q < end) {
-				int c = 0;
-				int64_t j, l;
-				rle_dec1(q, c, l);
-				for (j = 0; j < l; ++j) putchar("$ACGTN"[c]);
-			}
+			if (!(flag&FLAG_BIN)) {
+				while (q < end) {
+					int c = 0;
+					int64_t j, l;
+					rle_dec1(q, c, l);
+					for (j = 0; j < l; ++j) putchar("$ACGTN"[c]);
+				}
+			} else fwrite(q, 1, end - q, stdout);
 		}
 		putchar('\n');
 	} else {
