@@ -3,7 +3,7 @@ CFLAGS=		-g -Wall -O2 #-fno-inline-functions -fno-inline-functions-called-once
 DFLAGS=
 PROG=		ropebwt2
 INCLUDES=	
-LIBS=		-lz
+LIBS=		-lz -lpthread
 
 .SUFFIXES:.c .o
 

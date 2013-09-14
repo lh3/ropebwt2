@@ -24,6 +24,7 @@ static unsigned char seq_nt6_table[128] = {
 #define FLAG_BIN 0x8
 #define FLAG_TREE 0x10
 #define FLAG_COMP 0x20
+#define FLAG_THR 0x40
 #define FLAG_RLO 0x80
 
 static inline int kputsn(const char *p, int l, kstring_t *s)
@@ -65,13 +66,14 @@ int main(int argc, char *argv[])
 	int flag = FLAG_FOR | FLAG_REV | FLAG_ODD;
 	kstring_t buf = { 0, 0, 0 };
 
-	while ((c = getopt(argc, argv, "TFROrbso:l:n:m:")) >= 0)
+	while ((c = getopt(argc, argv, "TFROtrbso:l:n:m:")) >= 0)
 		if (c == 'o') out = fopen(optarg, "wb");
 		else if (c == 'F') flag &= ~FLAG_FOR;
 		else if (c == 'R') flag &= ~FLAG_REV;
 		else if (c == 'O') flag &= ~FLAG_ODD;
 		else if (c == 'T') flag |= FLAG_TREE;
 		else if (c == 'b') flag |= FLAG_BIN;
+		else if (c == 't') flag |= FLAG_THR;
 		else if (c == 's') flag |= FLAG_RLO;
 		else if (c == 'r') flag |= FLAG_RLO | FLAG_COMP;
 		else if (c == 'l') block_len = atoi(optarg);
@@ -146,11 +148,11 @@ int main(int argc, char *argv[])
 			}
 		}
 		if (m && buf.l >= m) {
-			mr_insert_multi(r6, buf.l, (uint8_t*)buf.s, flag&FLAG_COMP);
+			mr_insert_multi(r6, buf.l, (uint8_t*)buf.s, flag&FLAG_COMP, flag&FLAG_THR);
 			buf.l = 0;
 		}
 	}
-	if (m && buf.l) mr_insert_multi(r6, buf.l, (uint8_t*)buf.s, flag&FLAG_COMP);
+	if (m && buf.l) mr_insert_multi(r6, buf.l, (uint8_t*)buf.s, flag&FLAG_COMP, flag&FLAG_THR);
 	kseq_destroy(ks);
 	gzclose(fp);
 

@@ -1,7 +1,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <unistd.h>
+#include <pthread.h>
 #include <stdio.h>
+#include <time.h>
 #include "mrope.h"
 
 /*******************************
@@ -101,9 +104,10 @@ typedef const uint8_t *cstr_t;
 
 #define rope_comp6(c) ((c) >= 1 && (c) <= 4? 5 - (c) : (c))
 
-static void mr_insert_multi_aux(rope_t *rope, int64_t m, triple64_t *a, int d, const cstr_t *ptr, int is_comp)
+static void mr_insert_multi_aux(rope_t *rope, int64_t m, triple64_t *a, int64_t d, const cstr_t *ptr, int is_comp)
 {
 	int64_t k, beg;
+	if (m == 0) return;
 	for (k = 0; k != m; ++k) // set the base to insert
 		a[k].c = ptr[a[k].i][d];
 	for (k = 1, beg = 0; k <= m; ++k) {
@@ -146,11 +150,39 @@ static void mr_insert_multi_aux(rope_t *rope, int64_t m, triple64_t *a, int d, c
 	}
 }
 
-void mr_insert_multi(mrope_t *mr, int64_t len, const uint8_t *s, int is_comp)
+typedef struct {
+	volatile int *n_fin_workers;
+	volatile int to_run;
+	int to_exit;
+	const cstr_t *ptr;
+	mrope_t *mr;
+	int b, is_comp;
+	int64_t m, d;
+	triple64_t *a;
+} worker_t;
+
+static void *worker(void *data)
+{
+	worker_t *w = (worker_t*)data;
+	struct timespec req, rem;
+	req.tv_sec = 0; req.tv_nsec = 1000000;
+	while (!w->to_exit) {
+		while (!__sync_bool_compare_and_swap(&w->to_run, 1, 0)) nanosleep(&req, &rem); // wait the signal from the master thread
+		mr_insert_multi_aux(w->mr->r[w->b], w->m, w->a, w->d, w->ptr, w->is_comp);
+		__sync_add_and_fetch(w->n_fin_workers, 1);
+	}
+	return 0;
+}
+
+void mr_insert_multi(mrope_t *mr, int64_t len, const uint8_t *s, int is_comp, int is_thr)
 {
 	int64_t k, m, d, n0;
+	int b;
+	volatile int n_fin_workers = 0;
 	cstr_t *ptr;
 	triple64_t *a[2], *curr, *prev, *swap;
+	pthread_t *tid = 0;
+	worker_t *w = 0;
 
 	assert(len > 0 && s[len-1] == 0);
 	{ // initialize m and *ptr
@@ -167,24 +199,48 @@ void mr_insert_multi(mrope_t *mr, int64_t len, const uint8_t *s, int is_comp)
 	for (k = d = 0; k < 6; ++k) d += mr->r[k]->c[0];
 	for (k = 0; k != m; ++k)
 		prev[k].l = 0, prev[k].u = d, prev[k].i = k, prev[k].c = 0;
+	mr_insert_multi_aux(mr->r[0], m, prev, 0, ptr, is_comp); // insert the first (actually the last) column
 
-	mr_insert_multi_aux(mr->r[0], m, prev, 0, ptr, is_comp);
+	if (is_thr) {
+		tid = alloca(4 * sizeof(pthread_t));
+		w = alloca(4 * sizeof(worker_t));
+		memset(w, 0, 4 * sizeof(worker_t));
+		for (b = 0; b < 4; ++b) {
+			w[b].mr = mr, w[b].b = b + 1, w[b].is_comp = is_comp, w[b].ptr = ptr;
+			w[b].n_fin_workers = &n_fin_workers;
+		}
+		for (b = 0; b < 4; ++b) pthread_create(&tid[b], 0, worker, &w[b]);
+	}
 
 	for (d = 1, n0 = 0; m; ++d) {
 		int64_t c[6], ac[6];
-		int b;
 		triple64_t *q[6];
 
 		memset(c, 0, 48);
 		for (k = n0; k != m; ++k) ++c[prev[k].c]; // counting
-		if (n0 + c[0] == m) break;
 		for (q[0] = curr + n0, b = 1; b < 6; ++b) q[b] = q[b-1] + c[b-1];
-		for (k = n0; k != m; ++k) *q[prev[k].c]++ = prev[k]; // sort
-		for (b = 0; b < 6; ++b) q[b] -= c[b];
+		if (n0 + c[0] < m) {
+			for (k = n0; k != m; ++k) *q[prev[k].c]++ = prev[k]; // sort
+			for (b = 0; b < 6; ++b) q[b] -= c[b];
+		}
 		n0 += c[0];
 
-		for (b = 1; b < 6; ++b)
-			mr_insert_multi_aux(mr->r[b], c[b], q[b], d, ptr, is_comp);
+		if (is_thr) {
+			struct timespec req, rem;
+			req.tv_sec = 0; req.tv_nsec = 1000000;
+			for (b = 0; b < 4; ++b) {
+				w[b].a = q[b+1], w[b].m = c[b+1], w[b].d = d;
+				if (n0 == m) w[b].to_exit = 1; // signal the workers to exit
+				while (!__sync_bool_compare_and_swap(&w[b].to_run, 0, 1)); // signal the workers to start
+			}
+			mr_insert_multi_aux(mr->r[5], c[5], q[5], d, ptr, is_comp); // the master thread processes the "N" bucket
+			while (!__sync_bool_compare_and_swap(&n_fin_workers, 4, 0)) // wait until all 4 workers finish
+				nanosleep(&req, &rem);
+		} else {
+			for (b = 1; b < 6; ++b)
+				mr_insert_multi_aux(mr->r[b], c[b], q[b], d, ptr, is_comp);
+		}
+		if (n0 == m) break;
 
 		memset(ac, 0, 48);
 		for (b = 1; b < 6; ++b) {
@@ -198,6 +254,7 @@ void mr_insert_multi(mrope_t *mr, int64_t len, const uint8_t *s, int is_comp)
 
 		swap = curr, curr = prev, prev = swap;
 	}
+	if (is_thr) for (b = 0; b < 4; ++b) pthread_join(tid[b], 0);
 
 	free(ptr); free(a[0]); free(a[1]);
 }
