@@ -117,6 +117,8 @@ int main(int argc, char *argv[])
 			for (i = 0; i < l>>1; ++i) // is the reverse complement is identical to itself?
 				if (s[i] + s[l-1-i] != 5) break;
 			if (i == l>>1) --l; // if so, trim 1bp from the end
+			ks->seq.s[l] = 0;
+			ks->seq.l = l;
 		}
 		if (flag & FLAG_FOR) {
 			if (!m) {
