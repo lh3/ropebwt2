@@ -50,8 +50,10 @@ void mr_insert_string_rlo(mrope_t *r, const uint8_t *str, int is_comp)
 		if (l != u) {
 			int64_t cnt = 0;
 			rope_rank2a(r->r[b], l, u, tl, tu);
-			if (is_comp) for (a = 5; a > *p; --a) l += tu[a] - tl[a];
-			else for (a = 0; a < *p; ++a) l += tu[a] - tl[a];
+			if (is_comp) {
+				for (a = 5; a > *p; --a) l += tu[a] - tl[a];
+				l += tu[0] - tl[0];
+			} else for (a = 0; a < *p; ++a) l += tu[a] - tl[a];
 			rope_insert_run(r->r[b], l, *p, 1);
 			while (--b >= 0) cnt += r->r[b]->c[*p];
 			l = cnt + tl[*p]; u = cnt + tu[*p];
