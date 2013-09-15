@@ -73,7 +73,7 @@ int main(int argc, char *argv[])
 	gzFile fp;
 	FILE *out = stdout;
 	kseq_t *ks;
-	int c, i, block_len = 512, max_nodes = 64, m = 0;
+	int c, i, block_len = 512, max_nodes = 64, m = 0, from_stdin = 0;
 	int flag = FLAG_FOR | FLAG_REV | FLAG_ODD;
 	kstring_t buf = { 0, 0, 0 };
 
@@ -100,7 +100,8 @@ int main(int argc, char *argv[])
 			m = (int)(x * .97) + 1;
 		}
 
-	if (optind == argc) {
+	from_stdin = !isatty(fileno(stdin));
+	if (optind == argc && !from_stdin) {
 		fprintf(stderr, "\n");
 		fprintf(stderr, "Usage:   ropebwt2 [options] <in.fq.gz>\n\n");
 		fprintf(stderr, "Options: -l INT     leaf block length [%d]\n", block_len);
@@ -118,7 +119,7 @@ int main(int argc, char *argv[])
 
 	liftrlimit();
 	r6 = mr_init(max_nodes, block_len);
-	fp = strcmp(argv[optind], "-")? gzopen(argv[optind], "rb") : gzdopen(fileno(stdin), "rb");
+	fp = !from_stdin && strcmp(argv[optind], "-")? gzopen(argv[optind], "rb") : gzdopen(fileno(stdin), "rb");
 	ks = kseq_init(fp);
 	for (;;) {
 		int l;
