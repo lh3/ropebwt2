@@ -57,9 +57,7 @@ with parallelized incremental multi-string insertion, ropeBWT2 is faster than
 ropeBWT for incremental index construction and works much better with long
 strings in comparison to BCR. RopeBWT2 also uses more advanced run-length
 encoding, which will be more space efficient for highly repetitive inputs and
-might make it easier for new algorithms. It is also possible to optimize
-ropeBWT2 further by caching visited nodes, though such an improvement is
-technically complex.
+might make it easier for new algorithms.
 
 ###RopeBWT2 vs. BEETL
 
