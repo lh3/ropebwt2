@@ -7,25 +7,32 @@
 const uint8_t rle_auxtab[8] = { 0x01, 0x11, 0x21, 0x31, 0x03, 0x13, 0x07, 0x17 };
 
 // insert symbol $a after $x symbols in $str; marginal counts added to $cnt; returns the size increase
-int rle_insert(uint8_t *block, int64_t x, int a, int64_t rl, int64_t cnt[6], const int64_t ec[6])
+int rle_insert_cached(uint8_t *block, int64_t x, int a, int64_t rl, int64_t cnt[6], const int64_t ec[6], int *beg, int64_t bc[6])
 {
 	uint16_t *nptr = (uint16_t*)block;
 	int diff;
 
 	block += 2; // skip the first 2 counting bytes
-	memset(cnt, 0, 48);
 	if (*nptr == 0) {
+		memset(cnt, 0, 48);
 		diff = rle_enc1(block, a, rl);
 	} else {
 		uint8_t *p, *end = block + *nptr, *q;
-		int64_t pre, z, l = 0, tot;
+		int64_t pre, z, l = 0, tot, beg_l;
 		int c = -1, n_bytes = 0, n_bytes2, t = 0;
 		uint8_t tmp[24];
-		tot = ec[0] + ec[1] + ec[2] + ec[3] + ec[4] + ec[5];
-		if (x == 0) {
-			p = q = block; z = 0;
-		} else if (x <= (tot>>1) + (tot>>3)) { // forward
-			z = 0; p = block;
+		beg_l = bc[0] + bc[1] + bc[2] + bc[3] + bc[4] + bc[5];
+		tot   = ec[0] + ec[1] + ec[2] + ec[3] + ec[4] + ec[5];
+		if (x < beg_l) {
+			beg_l = 0, *beg = 0;
+			memset(bc, 0, 48);
+		}
+		if (x == beg_l) {
+			p = q = block + (*beg); z = beg_l;
+			memcpy(cnt, bc, 48);
+		} else if (x - beg_l <= ((tot-beg_l)>>1) + ((tot-beg_l)>>3)) { // forward
+			z = beg_l; p = block + (*beg);
+			memcpy(cnt, bc, 48);
 			while (z < x) {
 				rle_dec1(p, c, l);
 				z += l; cnt[c] += l;
@@ -49,6 +56,9 @@ int rle_insert(uint8_t *block, int64_t x, int a, int64_t rl, int64_t cnt[6], con
 			rle_dec1(p, c, l);
 			z += l; cnt[c] += l;
 		}
+		*beg = q - block;
+		memcpy(bc, cnt, 48);
+		bc[c] -= l;
 		n_bytes = p - q;
 		if (x == z && a != c && p < end) { // then try the next run
 			int tc;
@@ -76,6 +86,14 @@ int rle_insert(uint8_t *block, int64_t x, int a, int64_t rl, int64_t cnt[6], con
 		diff = n_bytes2 - n_bytes;
 	}
 	return (*nptr += diff);
+}
+
+int rle_insert(uint8_t *block, int64_t x, int a, int64_t rl, int64_t cnt[6], const int64_t ec[6])
+{
+	int beg = 0;
+	int64_t bc[6];
+	memset(bc, 0, 48);
+	return rle_insert_cached(block, x, a, rl, cnt, ec, &beg, bc);
 }
 
 void rle_split(uint8_t *block, uint8_t *new_block)

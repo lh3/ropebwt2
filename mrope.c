@@ -36,10 +36,10 @@ void mr_insert_string_io(mrope_t *r, const uint8_t *str)
 	for (a = 0, x = 0; a != 6; ++a)
 		x += r->r[a]->c[0];
 	for (p = str, a = 0; *p; a = *p++) {
-		x = rope_insert_run(r->r[a], x, *p, 1);
+		x = rope_insert_run(r->r[a], x, *p, 1, 0);
 		while (--a >= 0) x += r->r[a]->c[*p];
 	}
-	rope_insert_run(r->r[a], x, *p, 1);
+	rope_insert_run(r->r[a], x, *p, 1, 0);
 }
 
 void mr_insert_string_rlo(mrope_t *r, const uint8_t *str, int is_comp)
@@ -57,16 +57,16 @@ void mr_insert_string_rlo(mrope_t *r, const uint8_t *str, int is_comp)
 				for (a = 4; a > *p; --a) l += tu[a] - tl[a];
 				l += tu[0] - tl[0];
 			} else for (a = 0; a < *p; ++a) l += tu[a] - tl[a];
-			rope_insert_run(r->r[b], l, *p, 1);
+			rope_insert_run(r->r[b], l, *p, 1, 0);
 			while (--b >= 0) cnt += r->r[b]->c[*p];
 			l = cnt + tl[*p]; u = cnt + tu[*p];
 		} else {
-			l = rope_insert_run(r->r[b], l, *p, 1);
+			l = rope_insert_run(r->r[b], l, *p, 1, 0);
 			while (--b >= 0) l += r->r[b]->c[*p];
 			u = l;
 		}
 	}
-	rope_insert_run(r->r[b], l, 0, 1);
+	rope_insert_run(r->r[b], l, 0, 1, 0);
 }
 
 /**********************
@@ -107,7 +107,9 @@ typedef const uint8_t *cstr_t;
 static void mr_insert_multi_aux(rope_t *rope, int64_t m, triple64_t *a, int64_t d, const cstr_t *ptr, int is_comp)
 {
 	int64_t k, beg;
+	rpcache_t cache;
 	if (m == 0) return;
+	memset(&cache, 0, sizeof(rpcache_t));
 	for (k = 0; k != m; ++k) // set the base to insert
 		a[k].c = ptr[a[k].i][d];
 	for (k = 1, beg = 0; k <= m; ++k) {
@@ -121,7 +123,7 @@ static void mr_insert_multi_aux(rope_t *rope, int64_t m, triple64_t *a, int64_t 
 			memset(c, 0, 48);
 			for (i = beg; i < k; ++i) ++c[a[i].c];
 			// insert sentinel
-			if (c[0]) rope_insert_run(rope, l, 0, c[0]);
+			if (c[0]) rope_insert_run(rope, l, 0, c[0], &cache);
 			// insert A/C/G/T
 			x =  l + c[0] + (tu[0] - tl[0]);
 			if (is_comp) start = 4, end = 0, step = -1;
@@ -129,7 +131,7 @@ static void mr_insert_multi_aux(rope_t *rope, int64_t m, triple64_t *a, int64_t 
 			for (b = start; b != end; b += step) {
 				int64_t size = tu[b] - tl[b];
 				if (c[b]) {
-					tl[b] = rope_insert_run(rope, x, b, c[b]);
+					tl[b] = rope_insert_run(rope, x, b, c[b], &cache);
 					tu[b] = tl[b] + size;
 				}
 				x += c[b] + size;
@@ -137,7 +139,7 @@ static void mr_insert_multi_aux(rope_t *rope, int64_t m, triple64_t *a, int64_t 
 			// insert N
 			if (c[5]) {
 				tu[5] -= tl[5];
-				tl[5] = rope_insert_run(rope, x, 5, c[5]);
+				tl[5] = rope_insert_run(rope, x, 5, c[5], &cache);
 				tu[5] += tl[5];
 			}
 			// update a[]

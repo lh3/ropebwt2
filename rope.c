@@ -110,7 +110,7 @@ static inline rpnode_t *split_node(rope_t *rope, rpnode_t *u, rpnode_t *v)
 	return v;
 }
 
-int64_t rope_insert_run(rope_t *rope, int64_t x, int a, int64_t rl)
+int64_t rope_insert_run(rope_t *rope, int64_t x, int a, int64_t rl, rpcache_t *cache)
 { // insert $a after $x symbols in $rope and the returns rank(a, x)
 	rpnode_t *u = 0, *v = 0, *p = rope->root; // $v is the parent of $p; $u and $v are at the same level and $u is the first node in the bucket
 	int64_t y = 0, z = 0, cnt[6];
@@ -132,10 +132,17 @@ int64_t rope_insert_run(rope_t *rope, int64_t x, int a, int64_t rl)
 		v = p; p = p->p; // descend
 	} while (!u->is_bottom);
 	rope->c[a] += rl; // $rope->c should be updated after the loop as adding a new root needs the old $rope->c counts
-	n_runs = rle_insert((uint8_t*)p, x - y, a, rl, cnt, v->c);
+	if (cache) {
+		if (cache->p != (uint8_t*)p) memset(cache, 0, sizeof(rpcache_t));
+		n_runs = rle_insert_cached((uint8_t*)p, x - y, a, rl, cnt, v->c, &cache->beg, cache->bc);
+		cache->p = (uint8_t*)p;
+	} else n_runs = rle_insert((uint8_t*)p, x - y, a, rl, cnt, v->c);
 	z += cnt[a];
 	v->c[a] += rl; v->l += rl; // this should be after rle_insert(); otherwise rle_insert() won't work
-	if (n_runs + RLE_MIN_SPACE > rope->block_len) split_node(rope, u, v);
+	if (n_runs + RLE_MIN_SPACE > rope->block_len) {
+		split_node(rope, u, v);
+		if (cache) memset(cache, 0, sizeof(rpcache_t));
+	}
 	return z;
 }
 

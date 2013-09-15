@@ -25,13 +25,19 @@ typedef struct {
 	int d; // the current depth in the B+-tree
 } rpitr_t;
 
+typedef struct {
+	int beg;
+	int64_t bc[6];
+	uint8_t *p;
+} rpcache_t;
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 	rope_t *rope_init(int max_nodes, int block_len);
 	void rope_destroy(rope_t *rope);
-	int64_t rope_insert_run(rope_t *rope, int64_t x, int a, int64_t rl);
+	int64_t rope_insert_run(rope_t *rope, int64_t x, int a, int64_t rl, rpcache_t *cache);
 	void rope_rank2a(const rope_t *rope, int64_t x, int64_t y, int64_t *cx, int64_t *cy);
 	#define rope_rank1a(rope, x, cx) rope_rank2a(rope, x, -1, cx, 0)
 
