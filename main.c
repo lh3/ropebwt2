@@ -25,7 +25,7 @@ static unsigned char seq_nt6_table[128] = {
 #define FLAG_TREE 0x10
 #define FLAG_COMP 0x20
 #define FLAG_THR 0x40
-#define FLAG_RLO 0x80
+#define FLAG_SRT 0x80
 #define FLAG_LINE 0x100
 
 static inline int kputsn(const char *p, int l, kstring_t *s)
@@ -85,8 +85,8 @@ int main(int argc, char *argv[])
 		else if (c == 'T') flag |= FLAG_TREE;
 		else if (c == 'b') flag |= FLAG_BIN;
 		else if (c == 't') flag |= FLAG_THR;
-		else if (c == 's') flag |= FLAG_RLO;
-		else if (c == 'r') flag |= FLAG_RLO | FLAG_COMP;
+		else if (c == 's') flag |= FLAG_SRT;
+		else if (c == 'r') flag |= FLAG_SRT | FLAG_COMP;
 		else if (c == 'L') flag |= FLAG_LINE;
 		else if (c == 'l') block_len = atoi(optarg);
 		else if (c == 'n') max_nodes= atoi(optarg);
@@ -107,6 +107,7 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "Options: -l INT     leaf block length [%d]\n", block_len);
 		fprintf(stderr, "         -n INT     max number children per internal node (bpr only) [%d]\n", max_nodes);
 		fprintf(stderr, "         -o FILE    output file [stdout]\n");
+		fprintf(stderr, "         -m INT     batch size; 0 for single-string indexing [0]\n");
 		fprintf(stderr, "         -L         input in the one-sequence-per-line format\n");
 		fprintf(stderr, "         -b         binary output (5+3 runs starting after 4 bytes)\n");
 		fprintf(stderr, "         -s         build BWT in RLO\n");
@@ -145,7 +146,7 @@ int main(int argc, char *argv[])
 		}
 		if (flag & FLAG_FOR) {
 			if (!m) {
-				if (flag & FLAG_RLO) mr_insert_string_rlo(r6, s, flag&FLAG_COMP);
+				if (flag & FLAG_SRT) mr_insert_string_rlo(r6, s, flag&FLAG_COMP);
 				else mr_insert_string_io(r6, s);
 			} else {
 				kputsn((char*)ks->seq.s, ks->seq.l, &buf);
@@ -161,7 +162,7 @@ int main(int argc, char *argv[])
 			}
 			if (l&1) s[i] = (s[i] >= 1 && s[i] <= 4)? 5 - s[i] : s[i];
 			if (!m) {
-				if (flag & FLAG_RLO) mr_insert_string_rlo(r6, s, flag&FLAG_COMP);
+				if (flag & FLAG_SRT) mr_insert_string_rlo(r6, s, flag&FLAG_COMP);
 				else mr_insert_string_io(r6, s);
 			} else {
 				kputsn((char*)ks->seq.s, ks->seq.l, &buf);
@@ -169,11 +170,11 @@ int main(int argc, char *argv[])
 			}
 		}
 		if (m && buf.l >= m) {
-			mr_insert_multi(r6, buf.l, (uint8_t*)buf.s, flag&FLAG_COMP, flag&FLAG_THR);
+			mr_insert_multi(r6, buf.l, (uint8_t*)buf.s, flag&FLAG_SRT, flag&FLAG_COMP, flag&FLAG_THR);
 			buf.l = 0;
 		}
 	}
-	if (m && buf.l) mr_insert_multi(r6, buf.l, (uint8_t*)buf.s, flag&FLAG_COMP, flag&FLAG_THR);
+	if (m && buf.l) mr_insert_multi(r6, buf.l, (uint8_t*)buf.s, flag&FLAG_SRT, flag&FLAG_COMP, flag&FLAG_THR);
 	kseq_destroy(ks);
 	gzclose(fp);
 
@@ -189,11 +190,11 @@ int main(int argc, char *argv[])
 					int c = 0;
 					int64_t j, l;
 					rle_dec1(q, c, l);
-					for (j = 0; j < l; ++j) putchar("$ACGTN"[c]);
+					for (j = 0; j < l; ++j) fputc("$ACGTN"[c], out);
 				}
-			} else fwrite(q, 1, end - q, stdout);
+			} else fwrite(q, 1, end - q, out);
 		}
-		putchar('\n');
+		fputc('\n', out);
 	} else {
 		for (c = 0; c < 6; ++c) rope_print_node(r6->r[c]->root);
 		putchar('\n');

@@ -22,7 +22,7 @@ extern "C" {
 
 	void mr_insert_string_io(mrope_t *r, const uint8_t *str);
 	void mr_insert_string_rlo(mrope_t *r, const uint8_t *str, int is_comp);
-	void mr_insert_multi(mrope_t *mr, int64_t len, const uint8_t *s, int is_comp, int is_thr);
+	void mr_insert_multi(mrope_t *mr, int64_t len, const uint8_t *s, int is_srt, int is_comp, int is_thr);
 
 	void mr_itr_first(const mrope_t *r, mritr_t *i);
 	const uint8_t *mr_itr_next_block(mritr_t *i, int *n);

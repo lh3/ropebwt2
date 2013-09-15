@@ -174,7 +174,7 @@ static void *worker(void *data)
 	return 0;
 }
 
-void mr_insert_multi(mrope_t *mr, int64_t len, const uint8_t *s, int is_comp, int is_thr)
+void mr_insert_multi(mrope_t *mr, int64_t len, const uint8_t *s, int is_srt, int is_comp, int is_thr)
 {
 	int64_t k, m, d, n0;
 	int b;
@@ -185,6 +185,7 @@ void mr_insert_multi(mrope_t *mr, int64_t len, const uint8_t *s, int is_comp, in
 	worker_t *w = 0;
 
 	assert(len > 0 && s[len-1] == 0);
+	if (!is_srt) is_comp = 0;
 	{ // initialize m and *ptr
 		cstr_t p, q, end = s + len;
 		for (p = s, m = 0; p != end; ++p) // count #sentinels
@@ -197,8 +198,11 @@ void mr_insert_multi(mrope_t *mr, int64_t len, const uint8_t *s, int is_comp, in
 	curr = a[0] = malloc(m * sizeof(triple64_t));
 	prev = a[1] = malloc(m * sizeof(triple64_t));
 	for (k = d = 0; k < 6; ++k) d += mr->r[k]->c[0];
-	for (k = 0; k != m; ++k)
-		prev[k].l = 0, prev[k].u = d, prev[k].i = k, prev[k].c = 0;
+	for (k = 0; k != m; ++k) {
+		if (is_srt) prev[k].l = 0, prev[k].u = d;
+		else prev[k].l = prev[k].u = d + k;
+		prev[k].i = k, prev[k].c = 0;
+	}
 	mr_insert_multi_aux(mr->r[0], m, prev, 0, ptr, is_comp); // insert the first (actually the last) column
 
 	if (is_thr) {

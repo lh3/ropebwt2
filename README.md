@@ -65,15 +65,16 @@ technically complex.
 
 [BEETL][5] is the original implementation of the BCR algorithm. It uses disk to
 alleviate the memory requirement for constructing large FM-index and therefore
-heavily relies on fast linear disk access. BEETL supports SAP order but not RLO
-or RCLO.
+heavily relies on fast linear disk access. BEETL supports the SAP order for
+inserting sequences but not RLO or RCLO.
 
 ###RopeBWT2 vs. dynamic FM-index
 
 RopeBWT was conceived in 2012, but the algorithm has been invented several
 years earlier for multiple times. [Dynamic FM-index][3] is a notable
 implementation that uses a [wavelet tree][6] for generic text and supports the
-deletion operation.
+deletion operation. As it is not specifically designed for DNA sequences, it is
+apparently ten times slower and uses more memory on the index construction.
 
 
 
