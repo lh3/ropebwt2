@@ -26,6 +26,7 @@ static unsigned char seq_nt6_table[128] = {
 #define FLAG_COMP 0x20
 #define FLAG_THR 0x40
 #define FLAG_RLO 0x80
+#define FLAG_LINE 0x100
 
 static inline int kputsn(const char *p, int l, kstring_t *s)
 {
@@ -76,7 +77,7 @@ int main(int argc, char *argv[])
 	int flag = FLAG_FOR | FLAG_REV | FLAG_ODD;
 	kstring_t buf = { 0, 0, 0 };
 
-	while ((c = getopt(argc, argv, "TFROtrbso:l:n:m:")) >= 0)
+	while ((c = getopt(argc, argv, "LTFROtrbso:l:n:m:")) >= 0)
 		if (c == 'o') out = fopen(optarg, "wb");
 		else if (c == 'F') flag &= ~FLAG_FOR;
 		else if (c == 'R') flag &= ~FLAG_REV;
@@ -86,6 +87,7 @@ int main(int argc, char *argv[])
 		else if (c == 't') flag |= FLAG_THR;
 		else if (c == 's') flag |= FLAG_RLO;
 		else if (c == 'r') flag |= FLAG_RLO | FLAG_COMP;
+		else if (c == 'L') flag |= FLAG_LINE;
 		else if (c == 'l') block_len = atoi(optarg);
 		else if (c == 'n') max_nodes= atoi(optarg);
 		else if (c == 'm') {
@@ -104,6 +106,7 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "Options: -l INT     leaf block length [%d]\n", block_len);
 		fprintf(stderr, "         -n INT     max number children per internal node (bpr only) [%d]\n", max_nodes);
 		fprintf(stderr, "         -o FILE    output file [stdout]\n");
+		fprintf(stderr, "         -L         input in the one-sequence-per-line format\n");
 		fprintf(stderr, "         -b         binary output (5+3 runs starting after 4 bytes)\n");
 		fprintf(stderr, "         -s         build BWT in RLO\n");
 		fprintf(stderr, "         -r         in the RLO mode, complement input sequences (force -s)\n");
@@ -117,9 +120,15 @@ int main(int argc, char *argv[])
 	r6 = mr_init(max_nodes, block_len);
 	fp = strcmp(argv[optind], "-")? gzopen(argv[optind], "rb") : gzdopen(fileno(stdin), "rb");
 	ks = kseq_init(fp);
-	while (kseq_read(ks) >= 0) {
-		int l = ks->seq.l;
-		uint8_t *s = (uint8_t*)ks->seq.s;
+	for (;;) {
+		int l;
+		uint8_t *s;
+		if (flag & FLAG_LINE) { // read a line
+			int dret;
+			if (ks_getuntil(ks->f, KS_SEP_LINE, &ks->seq, &dret) < 0) break;
+		} else if (kseq_read(ks) < 0) break; // read fasta/fastq
+		l = ks->seq.l;
+		s = (uint8_t*)ks->seq.s;
 		for (i = 0; i < l; ++i) // change encoding
 			s[i] = s[i] < 128? seq_nt6_table[s[i]] : 5;
 		for (i = 0; i < l>>1; ++i) { // reverse
