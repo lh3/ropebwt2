@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/resource.h>
 #include "rle.h"
 #include "mrope.h"
 #include "kseq.h"
