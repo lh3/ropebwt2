@@ -7,9 +7,6 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 #include "rld.h"
-#ifndef _NO_UTILS_H
-#include "utils.h"
-#endif
 
 #ifdef _USE_RLE6
 #define RLD_IBITS_PLUS 3
