@@ -3,6 +3,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/resource.h>
+#include <sys/time.h>
 #include "rle.h"
 #include "mrope.h"
 #include "kseq.h"
@@ -68,17 +69,32 @@ static void liftrlimit() // increase the soft limit to hard limit
 #endif
 }
 
+double cputime()
+{
+	struct rusage r;
+	getrusage(RUSAGE_SELF, &r);
+	return r.ru_utime.tv_sec + r.ru_stime.tv_sec + 1e-6 * (r.ru_utime.tv_usec + r.ru_stime.tv_usec);
+}
+
+double realtime()
+{
+	struct timeval tp;
+	struct timezone tzp;
+	gettimeofday(&tp, &tzp);
+	return tp.tv_sec + tp.tv_usec * 1e-6;
+}
+
 int main(int argc, char *argv[])
 {
 	mrope_t *r6;
 	gzFile fp;
 	FILE *out = stdout;
 	kseq_t *ks;
-	int c, i, block_len = 512, max_nodes = 64, m = 0, from_stdin = 0;
+	int c, i, block_len = 512, max_nodes = 64, m = 0, from_stdin = 0, verbose = 3;
 	int flag = FLAG_FOR | FLAG_REV | FLAG_ODD;
 	kstring_t buf = { 0, 0, 0 };
 
-	while ((c = getopt(argc, argv, "LTFROtrbso:l:n:m:")) >= 0)
+	while ((c = getopt(argc, argv, "LTFROtrbso:l:n:m:v:")) >= 0)
 		if (c == 'o') out = fopen(optarg, "wb");
 		else if (c == 'F') flag &= ~FLAG_FOR;
 		else if (c == 'R') flag &= ~FLAG_REV;
@@ -91,6 +107,7 @@ int main(int argc, char *argv[])
 		else if (c == 'L') flag |= FLAG_LINE;
 		else if (c == 'l') block_len = atoi(optarg);
 		else if (c == 'n') max_nodes= atoi(optarg);
+		else if (c == 'v') verbose = atoi(optarg);
 		else if (c == 'm') {
 			long x;
 			char *p;
@@ -171,11 +188,19 @@ int main(int argc, char *argv[])
 			}
 		}
 		if (m && buf.l >= m) {
+			double ct = cputime(), rt = realtime();
 			mr_insert_multi(r6, buf.l, (uint8_t*)buf.s, flag&FLAG_SRT, flag&FLAG_COMP, flag&FLAG_THR);
+			if (verbose >= 3) fprintf(stderr, "[M::%s] inserted %ld symbols in %.3f real sec and %.3f CPU sec\n",
+					__func__, (long)buf.l, realtime() - rt, cputime() - ct);
 			buf.l = 0;
 		}
 	}
-	if (m && buf.l) mr_insert_multi(r6, buf.l, (uint8_t*)buf.s, flag&FLAG_SRT, flag&FLAG_COMP, flag&FLAG_THR);
+	if (m && buf.l) {
+		double ct = cputime(), rt = realtime();
+		mr_insert_multi(r6, buf.l, (uint8_t*)buf.s, flag&FLAG_SRT, flag&FLAG_COMP, flag&FLAG_THR);
+		if (verbose >= 3) fprintf(stderr, "[M::%s] inserted %ld symbols in %.3f real sec and %.3f CPU sec\n",
+				__func__, (long)buf.l, realtime() - rt, cputime() - ct);
+	}
 	kseq_destroy(ks);
 	gzclose(fp);
 
