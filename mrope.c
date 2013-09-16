@@ -95,24 +95,100 @@ const uint8_t *mr_itr_next_block(mritr_t *i, int *n)
  *** Inserting multiple strings in RLO ***
  *****************************************/
 
+typedef const uint8_t *cstr_t;
+
 typedef struct {
 	uint64_t l;
 	uint64_t u:61, c:3;
-	const uint8_t *p;
+	cstr_t p;
 } triple64_t;
 
-typedef const uint8_t *cstr_t;
+#define rstype_t triple64_t
+#define rskey(x) ((x).l)
+
+#define RS_MIN_SIZE 64
+
+typedef struct {
+	rstype_t *b, *e;
+} rsbucket_t;
+
+void rs_sort(rstype_t *beg, rstype_t *end, int n_bits, int s)
+{
+	rstype_t *i;
+	int size = 1<<n_bits, m = size - 1;
+	rsbucket_t *k, b[size], *be = b + size;
+
+	for (k = b; k != be; ++k) k->b = k->e = beg;
+	for (i = beg; i != end; ++i) ++b[rskey(*i)>>s&m].e; // count radix
+	for (k = b + 1; k != be; ++k) // set start and end of each bucket
+		k->e += (k-1)->e - beg, k->b = (k-1)->e;
+	for (k = b; k != be;) { // in-place classification based on radix
+		if (k->b != k->e) { // the bucket is not full
+			rsbucket_t *l;
+			if ((l = b + (rskey(*k->b)>>s&m)) != k) { // destination different
+				rstype_t tmp = *k->b, swap;
+				do { // swap until we find an element in $k
+					swap = tmp; tmp = *l->b; *l->b++ = swap;
+					l = b + (rskey(tmp)>>s&m);
+				} while (l != k);
+				*k->b++ = tmp;
+			} else ++k->b;
+		} else ++k;
+	}
+	for (b->b = beg, k = b + 1; k != be; ++k) k->b = (k-1)->e; // reset k->b
+	if (s) { // if $s is non-zero, we need to sort buckets
+		s = s > n_bits? s - n_bits : 0;
+		for (k = b; k != be; ++k)
+			if (k->e - k->b > RS_MIN_SIZE) rs_sort(k->b, k->e, n_bits, s);
+			else if (k->e - k->b > 1) // then use an insertion sort
+				for (i = k->b + 1; i < k->e; ++i)
+					if (rskey(*i) < rskey(*(i - 1))) {
+						rstype_t *j, tmp = *i;
+						for (j = i; j > k->b && rskey(tmp) < rskey(*(j-1)); --j)
+							*j = *(j - 1);
+						*j = tmp;
+					}
+	}
+}
+
+void rs_classify(rstype_t *beg, rstype_t *end, int64_t c[8]) // very similar to the first half of rs_sort()
+{
+	rsbucket_t *k, b[8], *be = b + 8;
+	rstype_t *p;
+	memset(c, 0, 64);
+	for (p = beg; p != end; ++p) ++c[p->c];
+	for (b->b = beg, k = b + 1; k != be; ++k) k->b = (k-1)->b + c[k-b-1];
+	for (k = b; k != be - 1; ++k) k->e = k[1].b;
+	k->e = end;
+	for (k = b; k != be;) {
+		if (k->b != k->e) {
+			rsbucket_t *l;
+			if ((l = b + (*k->b).c) != k) {
+				rstype_t tmp = *k->b, swap;
+				do {
+					swap = tmp; tmp = *l->b; *l->b++ = swap;
+					l = b + tmp.c;
+				} while (l != k);
+				*k->b++ = tmp;
+			} else ++k->b;
+		} else ++k;
+	}
+}
 
 #define rope_comp6(c) ((c) >= 1 && (c) <= 4? 5 - (c) : (c))
 
 static void mr_insert_multi_aux(rope_t *rope, int64_t m, triple64_t *a, int is_comp)
 {
-	int64_t k, beg;
+	int64_t k, beg, max = 0;
 	rpcache_t cache;
 	if (m == 0) return;
 	memset(&cache, 0, sizeof(rpcache_t));
-	for (k = 0; k != m; ++k) // set the base to insert
+	for (k = 0; k != m; ++k) { // set the base to insert
 		a[k].c = *a[k].p++;
+		max = max > a[k].l? max : a[k].l;
+	}
+	for (k = 0; max; max >>= 1, ++k);
+	rs_sort(a, a + m, 8, k > 7? k - 7 : 0);
 	for (k = 1, beg = 0; k <= m; ++k) {
 		if (k == m || a[k].u != a[k-1].u) {
 			int64_t x, i, l = a[beg].l, u = a[beg].u, tl[6], tu[6], c[6];
@@ -181,7 +257,7 @@ void mr_insert_multi(mrope_t *mr, int64_t len, const uint8_t *s, int is_srt, int
 	int64_t k, m, n0;
 	int b;
 	volatile int n_fin_workers = 0;
-	triple64_t *a[2], *curr, *prev, *swap;
+	triple64_t *a;
 	pthread_t *tid = 0;
 	worker_t *w = 0;
 
@@ -191,19 +267,18 @@ void mr_insert_multi(mrope_t *mr, int64_t len, const uint8_t *s, int is_srt, int
 		cstr_t p, q, end = s + len;
 		for (p = s, m = 0; p != end; ++p) // count #sentinels
 			if (*p == 0) ++m;
-		curr = a[0] = malloc(m * sizeof(triple64_t));
-		prev = a[1] = malloc(m * sizeof(triple64_t));
+		a = malloc(m * sizeof(triple64_t));
 		for (p = q = s, k = 0; p != end; ++p) // find the start of each string
-			if (*p == 0) prev[k++].p = q, q = p + 1;
+			if (*p == 0) a[k++].p = q, q = p + 1;
 	}
 
 	for (k = n0 = 0; k < 6; ++k) n0 += mr->r[k]->c[0];
 	for (k = 0; k != m; ++k) {
-		if (is_srt) prev[k].l = 0, prev[k].u = n0;
-		else prev[k].l = prev[k].u = n0 + k;
-		prev[k].c = 0;
+		if (is_srt) a[k].l = 0, a[k].u = n0;
+		else a[k].l = a[k].u = n0 + k;
+		a[k].c = 0;
 	}
-	mr_insert_multi_aux(mr->r[0], m, prev, is_comp); // insert the first (actually the last) column
+	mr_insert_multi_aux(mr->r[0], m, a, is_comp); // insert the first (actually the last) column
 
 	if (is_thr) {
 		tid = alloca(4 * sizeof(pthread_t));
@@ -218,16 +293,12 @@ void mr_insert_multi(mrope_t *mr, int64_t len, const uint8_t *s, int is_srt, int
 
 	n0 = 0;
 	while (m) {
-		int64_t c[6], ac[6];
+		int64_t c[8], ac[6];
 		triple64_t *q[6];
 
 		memset(c, 0, 48);
-		for (k = n0; k != m; ++k) ++c[prev[k].c]; // counting
-		for (q[0] = curr + n0, b = 1; b < 6; ++b) q[b] = q[b-1] + c[b-1];
-		if (n0 + c[0] < m) {
-			for (k = n0; k != m; ++k) *q[prev[k].c]++ = prev[k]; // sort
-			for (b = 0; b < 6; ++b) q[b] -= c[b];
-		}
+		rs_classify(a + n0, a + m, c);
+		for (q[0] = a + n0, b = 1; b < 6; ++b) q[b] = q[b-1] + c[b-1];
 		n0 += c[0];
 
 		if (is_thr) {
@@ -256,10 +327,7 @@ void mr_insert_multi(mrope_t *mr, int64_t len, const uint8_t *s, int is_srt, int
 				p->l += ac[p->c]; p->u += ac[p->c];
 			}
 		}
-
-		swap = curr, curr = prev, prev = swap;
 	}
 	if (is_thr) for (b = 0; b < 4; ++b) pthread_join(tid[b], 0);
-
-	free(a[0]); free(a[1]);
+	free(a);
 }
