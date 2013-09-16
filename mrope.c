@@ -109,7 +109,6 @@ static void mr_insert_multi_aux(rope_t *rope, int64_t m, triple64_t *a, int is_c
 {
 	int64_t k, beg;
 	rpcache_t cache;
-	if (m == 0) return;
 	memset(&cache, 0, sizeof(rpcache_t));
 	for (k = 0; k != m; ++k) // set the base to insert
 		a[k].c = *a[k].p++;
@@ -169,8 +168,8 @@ static void *worker(void *data)
 	struct timespec req, rem;
 	req.tv_sec = 0; req.tv_nsec = 1000000;
 	while (!w->to_exit) {
-		while (!__sync_bool_compare_and_swap(&w->to_run, 1, 0)) nanosleep(&req, &rem); // wait the signal from the master thread
-		mr_insert_multi_aux(w->mr->r[w->b], w->m, w->a, w->is_comp);
+		while (!__sync_bool_compare_and_swap(&w->to_run, 1, 0)) nanosleep(&req, &rem); // wait for the signal from the master thread
+		if (w->m) mr_insert_multi_aux(w->mr->r[w->b], w->m, w->a, w->is_comp);
 		__sync_add_and_fetch(w->n_fin_workers, 1);
 	}
 	return 0;
@@ -238,17 +237,17 @@ void mr_insert_multi(mrope_t *mr, int64_t len, const uint8_t *s, int is_srt, int
 				if (n0 == m) w[b].to_exit = 1; // signal the workers to exit
 				while (!__sync_bool_compare_and_swap(&w[b].to_run, 0, 1)); // signal the workers to start
 			}
-			mr_insert_multi_aux(mr->r[5], c[5], q[5], is_comp); // the master thread processes the "N" bucket
+			if (c[5]) mr_insert_multi_aux(mr->r[5], c[5], q[5], is_comp); // the master thread processes the "N" bucket
 			while (!__sync_bool_compare_and_swap(&n_fin_workers, 4, 0)) // wait until all 4 workers finish
 				nanosleep(&req, &rem);
 		} else {
 			for (b = 1; b < 6; ++b)
-				mr_insert_multi_aux(mr->r[b], c[b], q[b], is_comp);
+				if (c[b]) mr_insert_multi_aux(mr->r[b], c[b], q[b], is_comp);
 		}
 		if (n0 == m) break;
 
 		memset(ac, 0, 48);
-		for (b = 1; b < 6; ++b) {
+		for (b = 1; b < 6; ++b) { // update the intervals to account for buckets ahead
 			int a;
 			for (a = 0; a < 6; ++a) ac[a] += mr->r[b-1]->c[a];
 			for (k = 0; k < c[b]; ++k) {
@@ -256,10 +255,8 @@ void mr_insert_multi(mrope_t *mr, int64_t len, const uint8_t *s, int is_srt, int
 				p->l += ac[p->c]; p->u += ac[p->c];
 			}
 		}
-
 		swap = curr, curr = prev, prev = swap;
 	}
 	if (is_thr) for (b = 0; b < 4; ++b) pthread_join(tid[b], 0);
-
 	free(a[0]); free(a[1]);
 }
