@@ -91,7 +91,8 @@ int main(int argc, char *argv[])
 	mrope_t *r6;
 	gzFile fp;
 	kseq_t *ks;
-	int c, i, block_len = 512, max_nodes = 64, m = 0, from_stdin = 0, verbose = 3;
+	int64_t m = 0;
+	int c, i, block_len = 512, max_nodes = 64, from_stdin = 0, verbose = 3;
 	int flag = FLAG_FOR | FLAG_REV | FLAG_ODD;
 	kstring_t buf = { 0, 0, 0 };
 	double ct, rt;
@@ -111,13 +112,13 @@ int main(int argc, char *argv[])
 		else if (c == 'n') max_nodes= atoi(optarg);
 		else if (c == 'v') verbose = atoi(optarg);
 		else if (c == 'm') {
-			long x;
+			double x;
 			char *p;
-			x = strtol(optarg, &p, 10);
+			x = strtod(optarg, &p);
 			if (*p == 'K' || *p == 'k') x *= 1024;
 			else if (*p == 'M' || *p == 'm') x *= 1024 * 1024;
 			else if (*p == 'G' || *p == 'g') x *= 1024 * 1024 * 1024;
-			m = (int)(x * .97) + 1;
+			m = (int64_t)(x * .97) + 1;
 		}
 
 	from_stdin = !isatty(fileno(stdin));
