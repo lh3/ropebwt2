@@ -12,7 +12,7 @@ LIBS=		-lz -lpthread
 
 all:$(PROG)
 
-ropebwt2:rle.o rope.o mrope.o main.o
+ropebwt2:rle.o rope.o mrope.o rld.o main.o
 		$(CC) $(CFLAGS) $(DFLAGS) $^ -o $@ $(LIBS)
 
 rle.o:rle.h

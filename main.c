@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <sys/resource.h>
 #include <sys/time.h>
+#include "rld.h"
 #include "rle.h"
 #include "mrope.h"
 #include "kseq.h"
@@ -29,6 +30,7 @@ static unsigned char seq_nt6_table[128] = {
 #define FLAG_THR 0x40
 #define FLAG_SRT 0x80
 #define FLAG_LINE 0x100
+#define FLAG_RLD 0x200
 
 static inline int kputsn(const char *p, int l, kstring_t *s)
 {
@@ -88,15 +90,14 @@ int main(int argc, char *argv[])
 {
 	mrope_t *r6;
 	gzFile fp;
-	FILE *out = stdout;
 	kseq_t *ks;
 	int c, i, block_len = 512, max_nodes = 64, m = 0, from_stdin = 0, verbose = 3;
 	int flag = FLAG_FOR | FLAG_REV | FLAG_ODD;
 	kstring_t buf = { 0, 0, 0 };
+	double ct, rt;
 
-	while ((c = getopt(argc, argv, "LTFROtrbso:l:n:m:v:")) >= 0)
-		if (c == 'o') out = fopen(optarg, "wb");
-		else if (c == 'F') flag &= ~FLAG_FOR;
+	while ((c = getopt(argc, argv, "LTFROtrbdsl:n:m:v:")) >= 0)
+		if (c == 'F') flag &= ~FLAG_FOR;
 		else if (c == 'R') flag &= ~FLAG_REV;
 		else if (c == 'O') flag &= ~FLAG_ODD;
 		else if (c == 'T') flag |= FLAG_TREE;
@@ -105,6 +106,7 @@ int main(int argc, char *argv[])
 		else if (c == 's') flag |= FLAG_SRT;
 		else if (c == 'r') flag |= FLAG_SRT | FLAG_COMP;
 		else if (c == 'L') flag |= FLAG_LINE;
+		else if (c == 'd') flag |= FLAG_RLD;
 		else if (c == 'l') block_len = atoi(optarg);
 		else if (c == 'n') max_nodes= atoi(optarg);
 		else if (c == 'v') verbose = atoi(optarg);
@@ -124,7 +126,6 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "Usage:   ropebwt2 [options] <in.fq.gz>\n\n");
 		fprintf(stderr, "Options: -l INT     leaf block length [%d]\n", block_len);
 		fprintf(stderr, "         -n INT     max number children per internal node (bpr only) [%d]\n", max_nodes);
-		fprintf(stderr, "         -o FILE    output file [stdout]\n");
 		fprintf(stderr, "         -m INT     batch size; 0 for single-string indexing [0]\n");
 		fprintf(stderr, "         -L         input in the one-sequence-per-line format\n");
 		fprintf(stderr, "         -b         binary output (5+3 runs starting after 4 bytes)\n");
@@ -140,6 +141,7 @@ int main(int argc, char *argv[])
 	r6 = mr_init(max_nodes, block_len);
 	fp = !from_stdin && strcmp(argv[optind], "-")? gzopen(argv[optind], "rb") : gzdopen(fileno(stdin), "rb");
 	ks = kseq_init(fp);
+	ct = cputime(); rt = realtime();
 	for (;;) {
 		int l;
 		uint8_t *s;
@@ -201,6 +203,8 @@ int main(int argc, char *argv[])
 		if (verbose >= 3) fprintf(stderr, "[M::%s] inserted %ld symbols in %.3f real sec and %.3f CPU sec\n",
 				__func__, (long)buf.l, realtime() - rt, cputime() - ct);
 	}
+	if (verbose >= 3) fprintf(stderr, "[M::%s] constructed FM-index in %.3f real sec and %.3f CPU sec\n",
+			__func__, realtime() - rt, cputime() - ct);
 	kseq_destroy(ks);
 	gzclose(fp);
 
@@ -208,23 +212,41 @@ int main(int argc, char *argv[])
 		mritr_t itr;
 		int len;
 		const uint8_t *block;
+		rld_t *e = 0;
+		rlditr_t di;
+		if (flag & FLAG_RLD) {
+			e = rld_init(6, 3);
+			rld_itr_init(e, &di, 0);
+		}
 		mr_itr_first(r6, &itr, 1);
 		while ((block = mr_itr_next_block(&itr, &len)) != 0) {
 			const uint8_t *q = block + 2, *end = block + 2 + *rle_nptr(block);
-			if (!(flag&FLAG_BIN)) {
+			if (flag & FLAG_RLD) {
+				while (q < end) {
+					int c = 0;
+					int64_t l;
+					rle_dec1(q, c, l);
+					rld_enc(e, &di, l, c);
+				}
+			} else if (flag & FLAG_BIN) {
+				fwrite(q, 1, end - q, stdout);
+			} else {
 				while (q < end) {
 					int c = 0;
 					int64_t j, l;
 					rle_dec1(q, c, l);
-					for (j = 0; j < l; ++j) fputc("$ACGTN"[c], out);
+					for (j = 0; j < l; ++j) putchar("$ACGTN"[c]);
 				}
-			} else fwrite(q, 1, end - q, out);
+			}
 		}
-		fputc('\n', out);
+		if (flag & FLAG_RLD) {
+			rld_enc_finish(e, &di);
+			rld_dump(e, "-");
+		} else if (!(flag & FLAG_BIN)) putchar('\n');
 	} else {
 		for (c = 0; c < 6; ++c) rope_print_node(r6->r[c]->root);
 		putchar('\n');
 	}
-	mr_destroy(r6); fclose(out);
+	mr_destroy(r6);
 	return 0;
 }
