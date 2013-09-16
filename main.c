@@ -208,7 +208,7 @@ int main(int argc, char *argv[])
 		mritr_t itr;
 		int len;
 		const uint8_t *block;
-		mr_itr_first(r6, &itr);
+		mr_itr_first(r6, &itr, 1);
 		while ((block = mr_itr_next_block(&itr, &len)) != 0) {
 			const uint8_t *q = block + 2, *end = block + 2 + *rle_nptr(block);
 			if (!(flag&FLAG_BIN)) {

@@ -25,7 +25,7 @@ void mr_destroy(mrope_t *r)
 {
 	int a;
 	for (a = 0; a != 6; ++a)
-		rope_destroy(r->r[a]);
+		if (r->r[a]) rope_destroy(r->r[a]);
 }
 
 void mr_insert_string_io(mrope_t *r, const uint8_t *str)
@@ -73,9 +73,9 @@ void mr_insert_string_rlo(mrope_t *r, const uint8_t *str, int is_comp)
  *** Mrope iterator ***
  **********************/
 
-void mr_itr_first(const mrope_t *r, mritr_t *i)
+void mr_itr_first(mrope_t *r, mritr_t *i, int to_free)
 {
-	i->a = 0; i->r = r;
+	i->a = 0; i->r = r; i->to_free = to_free;
 	rope_itr_first(i->r->r[0], &i->i);
 }
 
@@ -85,6 +85,10 @@ const uint8_t *mr_itr_next_block(mritr_t *i, int *n)
 	*n = 0;
 	if (i->a >= 6) return 0;
 	while ((s = rope_itr_next_block(&i->i, n)) == 0) {
+		if (i->to_free) {
+			rope_destroy(i->r->r[i->a]);
+			i->r->r[i->a] = 0;
+		}
 		if (++i->a == 6) return 0;
 		rope_itr_first(i->r->r[i->a], &i->i);
 	}
