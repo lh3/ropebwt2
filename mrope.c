@@ -105,14 +105,14 @@ typedef const uint8_t *cstr_t;
 
 #define rope_comp6(c) ((c) >= 1 && (c) <= 4? 5 - (c) : (c))
 
-static void mr_insert_multi_aux(rope_t *rope, int64_t m, triple64_t *a, int64_t d, int is_comp)
+static void mr_insert_multi_aux(rope_t *rope, int64_t m, triple64_t *a, int is_comp)
 {
 	int64_t k, beg;
 	rpcache_t cache;
 	if (m == 0) return;
 	memset(&cache, 0, sizeof(rpcache_t));
 	for (k = 0; k != m; ++k) // set the base to insert
-		a[k].c = a[k].p[d];
+		a[k].c = *a[k].p++;
 	for (k = 1, beg = 0; k <= m; ++k) {
 		if (k == m || a[k].u != a[k-1].u) {
 			int64_t x, i, l = a[beg].l, u = a[beg].u, tl[6], tu[6], c[6];
@@ -159,7 +159,7 @@ typedef struct {
 	int to_exit;
 	mrope_t *mr;
 	int b, is_comp;
-	int64_t m, d;
+	int64_t m;
 	triple64_t *a;
 } worker_t;
 
@@ -170,7 +170,7 @@ static void *worker(void *data)
 	req.tv_sec = 0; req.tv_nsec = 1000000;
 	while (!w->to_exit) {
 		while (!__sync_bool_compare_and_swap(&w->to_run, 1, 0)) nanosleep(&req, &rem); // wait the signal from the master thread
-		mr_insert_multi_aux(w->mr->r[w->b], w->m, w->a, w->d, w->is_comp);
+		mr_insert_multi_aux(w->mr->r[w->b], w->m, w->a, w->is_comp);
 		__sync_add_and_fetch(w->n_fin_workers, 1);
 	}
 	return 0;
@@ -178,7 +178,7 @@ static void *worker(void *data)
 
 void mr_insert_multi(mrope_t *mr, int64_t len, const uint8_t *s, int is_srt, int is_comp, int is_thr)
 {
-	int64_t k, m, d, n0;
+	int64_t k, m, n0;
 	int b;
 	volatile int n_fin_workers = 0;
 	triple64_t *a[2], *curr, *prev, *swap;
@@ -197,13 +197,13 @@ void mr_insert_multi(mrope_t *mr, int64_t len, const uint8_t *s, int is_srt, int
 			if (*p == 0) prev[k++].p = q, q = p + 1;
 	}
 
-	for (k = d = 0; k < 6; ++k) d += mr->r[k]->c[0];
+	for (k = n0 = 0; k < 6; ++k) n0 += mr->r[k]->c[0];
 	for (k = 0; k != m; ++k) {
-		if (is_srt) prev[k].l = 0, prev[k].u = d;
-		else prev[k].l = prev[k].u = d + k;
+		if (is_srt) prev[k].l = 0, prev[k].u = n0;
+		else prev[k].l = prev[k].u = n0 + k;
 		prev[k].c = 0;
 	}
-	mr_insert_multi_aux(mr->r[0], m, prev, 0, is_comp); // insert the first (actually the last) column
+	mr_insert_multi_aux(mr->r[0], m, prev, is_comp); // insert the first (actually the last) column
 
 	if (is_thr) {
 		tid = alloca(4 * sizeof(pthread_t));
@@ -216,7 +216,8 @@ void mr_insert_multi(mrope_t *mr, int64_t len, const uint8_t *s, int is_srt, int
 		for (b = 0; b < 4; ++b) pthread_create(&tid[b], 0, worker, &w[b]);
 	}
 
-	for (d = 1, n0 = 0; m; ++d) {
+	n0 = 0;
+	while (m) {
 		int64_t c[6], ac[6];
 		triple64_t *q[6];
 
@@ -233,16 +234,16 @@ void mr_insert_multi(mrope_t *mr, int64_t len, const uint8_t *s, int is_srt, int
 			struct timespec req, rem;
 			req.tv_sec = 0; req.tv_nsec = 1000000;
 			for (b = 0; b < 4; ++b) {
-				w[b].a = q[b+1], w[b].m = c[b+1], w[b].d = d;
+				w[b].a = q[b+1], w[b].m = c[b+1];
 				if (n0 == m) w[b].to_exit = 1; // signal the workers to exit
 				while (!__sync_bool_compare_and_swap(&w[b].to_run, 0, 1)); // signal the workers to start
 			}
-			mr_insert_multi_aux(mr->r[5], c[5], q[5], d, is_comp); // the master thread processes the "N" bucket
+			mr_insert_multi_aux(mr->r[5], c[5], q[5], is_comp); // the master thread processes the "N" bucket
 			while (!__sync_bool_compare_and_swap(&n_fin_workers, 4, 0)) // wait until all 4 workers finish
 				nanosleep(&req, &rem);
 		} else {
 			for (b = 1; b < 6; ++b)
-				mr_insert_multi_aux(mr->r[b], c[b], q[b], d, is_comp);
+				mr_insert_multi_aux(mr->r[b], c[b], q[b], is_comp);
 		}
 		if (n0 == m) break;
 
