@@ -4,7 +4,7 @@
 #include <unistd.h>
 #include <sys/resource.h>
 #include <sys/time.h>
-#include "rld.h"
+#include "rld0.h"
 #include "rle.h"
 #include "mrope.h"
 #include "kseq.h"

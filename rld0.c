@@ -6,13 +6,9 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/mman.h>
-#include "rld.h"
+#include "rld0.h"
 
-#ifdef _USE_RLE6
-#define RLD_IBITS_PLUS 3
-#else
 #define RLD_IBITS_PLUS 4
-#endif
 
 #define rld_file_size(e) ((4 + (e)->asize) * 8 + (e)->n_bytes + 8 * (e)->n_frames * ((e)->asize + 1))
 
@@ -56,9 +52,6 @@ static inline int64_t rld_delta_enc1(int64_t x, int *width)
 rld_t *rld_init(int asize, int bbits)
 {
 	rld_t *e;
-#ifdef _USE_RLE6
-	asize = 6;
-#endif
 	e = xcalloc(1, sizeof(rld_t));
 	e->n = 1;
 	e->z = xmalloc(sizeof(void*));
@@ -130,29 +123,6 @@ static inline void enc_next_block(rld_t *e, rlditr_t *itr)
 	for (i = 0; i <= e->asize; ++i) e->mcnt[i] = e->cnt[i];
 }
 
-#ifdef _USE_RLE6
-static inline int rld_enc0(rld_t *r, rlditr_t *itr, int64_t l, uint8_t c)
-{
-	if (itr->q >= (uint8_t*)(itr->shead + r->ssize) - 1) {
-		*itr->q = 0xff;
-		itr->p = itr->stail;
-		enc_next_block(r, itr);
-	}
-	*itr->q++ = c<<5 | l;
-	r->cnt[0] += l;
-	r->cnt[c + 1] += l;
-	return 0;
-}
-
-static inline int rld_enc1(rld_t *r, rlditr_t *itr, int64_t l, uint8_t c)
-{
-	const int max_l = 31;
-	for (; l > max_l; l -= max_l)
-		rld_enc0(r, itr, max_l, c);
-	rld_enc0(r, itr, l, c);
-	return 0;
-}
-#else
 static int rld_enc1(rld_t *e, rlditr_t *itr, int64_t l, uint8_t c)
 {
 	int w;
@@ -168,7 +138,6 @@ static int rld_enc1(rld_t *e, rlditr_t *itr, int64_t l, uint8_t c)
 	e->cnt[c + 1] += l;
 	return 0;
 }
-#endif
 
 int rld_enc(rld_t *e, rlditr_t *itr, int64_t l, uint8_t c)
 {
@@ -356,13 +325,6 @@ static inline uint64_t rld_locate_blk(const rld_t *e, rlditr_t *itr, uint64_t k,
 	while (1) { // seek to the small block
 		q += e->ssize;
 		if (q - *itr->i == RLD_LSIZE) q = *++itr->i;
-#ifdef _USE_RLE6
-		if (*sum + (c = *(uint16_t*)q) > k) break;
-		{
-			uint16_t *p = ((uint16_t*)q) + 1;
-			cnt[0] += p[0]; cnt[1] += p[1]; cnt[2] += p[2]; cnt[3] += p[3]; cnt[4] += p[4]; cnt[5] += p[5];
-		}
-#else
 		c = rld_size_bit(*q)? (uint32_t)(*q)&0x7fffffff : *(uint16_t*)q;
 		if (*sum + c > k) break;
 		if (rld_size_bit(*q)) {
@@ -376,7 +338,6 @@ static inline uint64_t rld_locate_blk(const rld_t *e, rlditr_t *itr, uint64_t k,
 			for (j = 0; j < e->asize; ++j) cnt[j] += p[j];
 #endif
 		}
-#endif
 		*sum += c;
 		itr->p = q;
 	}
@@ -388,7 +349,7 @@ static inline uint64_t rld_locate_blk(const rld_t *e, rlditr_t *itr, uint64_t k,
 	return c + *sum;
 }
 
-#if defined(_DNA_ONLY) && !defined(_USE_RLE6)
+#if defined(_DNA_ONLY)
 static inline int64_t rld_dec0_dna(const rld_t *e, rlditr_t *itr, int *c)
 {
 	uint64_t x = itr->r == 64? itr->p[0] : itr->p[0] << (64 - itr->r) | itr->p[1] >> itr->r;
@@ -423,14 +384,13 @@ int rld_rank1a(const rld_t *e, uint64_t k, uint64_t *ok)
 	uint64_t z, l;
 	int a = -1;
 	rlditr_t itr;
-	if (k == (uint64_t)-1) {
+	if (k == 0) {
 		for (a = 0; a < e->asize; ++a) ok[a] = 0;
 		return -1;
 	}
 	rld_locate_blk(e, &itr, k, ok, &z);
-	++k; // because k is the coordinate but not length
 	while (1) {
-#if defined(_DNA_ONLY) && !defined(_USE_RLE6)
+#if defined(_DNA_ONLY)
 		l = rld_dec0_dna(e, &itr, &a);
 #else
 		l = rld_dec0(e, &itr, &a);
@@ -456,13 +416,12 @@ void rld_rank2a(const rld_t *e, uint64_t k, uint64_t l, uint64_t *ok, uint64_t *
 	uint64_t z, y, len;
 	rlditr_t itr;
 	int a = -1;
-	if (k == (uint64_t)-1) { // special treatment for k==-1
+	if (k == 0) {
 		for (a = 0; a < e->asize; ++a) ok[a] = 0;
 		rld_rank1a(e, l, ol);
 		return;
 	}
 	y = rld_locate_blk(e, &itr, k, ok, &z); // locate the block bracketing k
-	++k; // because k is the coordinate but not length
 	while (1) { // compute ok[]
 		len = rld_dec0(e, &itr, &a);
 		if (z + len >= k) break;
@@ -470,7 +429,6 @@ void rld_rank2a(const rld_t *e, uint64_t k, uint64_t l, uint64_t *ok, uint64_t *
 	}
 	if (y > l) { // we do not need to decode other blocks
 		int b;
-		++l; // for a similar reason to ++l
 		for (b = 0; b < e->asize; ++b) ol[b] = ok[b]; // copy ok[] to ol[]
 		ok[a] += k - z; // finalize ok[a]
 		if (z + len < l) { // we need to decode the next run

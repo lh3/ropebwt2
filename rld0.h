@@ -1,5 +1,7 @@
-#ifndef RLDELTA_H
-#define RLDELTA_H
+#ifndef RLDELTA0_H
+#define RLDELTA0_H
+
+#define _DNA_ONLY
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -67,13 +69,6 @@ extern "C" {
 
 #define rld_size_bit(x) ((uint32_t)(x)>>31) // FIXME: NOT WORKING ON BIG-ENDIAN MACHINES!!!!!!!!!!
 
-#ifdef _USE_RLE6
-static inline int rld_dec0(const rld_t *r, rlditr_t *itr, int *c)
-{
-	*c = *itr->q >> 5;
-	return *itr->q++ & 0x1f;
-}
-#else
 static inline int64_t rld_dec0(const rld_t *e, rlditr_t *itr, int *c)
 {
 	int w;
@@ -92,7 +87,6 @@ static inline int64_t rld_dec0(const rld_t *e, rlditr_t *itr, int *c)
 	else ++itr->p, itr->r = 64 + itr->r - w;
 	return y;
 }
-#endif
 
 static inline int64_t rld_dec(const rld_t *e, rlditr_t *itr, int *_c, int is_free)
 {
