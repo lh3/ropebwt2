@@ -388,7 +388,7 @@ int rld_rank1a(const rld_t *e, uint64_t k, uint64_t *ok)
 		for (a = 0; a < e->asize; ++a) ok[a] = 0;
 		return -1;
 	}
-	rld_locate_blk(e, &itr, k, ok, &z);
+	rld_locate_blk(e, &itr, k-1, ok, &z);
 	while (1) {
 #if defined(_DNA_ONLY)
 		l = rld_dec0_dna(e, &itr, &a);
@@ -421,7 +421,7 @@ void rld_rank2a(const rld_t *e, uint64_t k, uint64_t l, uint64_t *ok, uint64_t *
 		rld_rank1a(e, l, ol);
 		return;
 	}
-	y = rld_locate_blk(e, &itr, k, ok, &z); // locate the block bracketing k
+	y = rld_locate_blk(e, &itr, k-1, ok, &z); // locate the block bracketing k
 	while (1) { // compute ok[]
 		len = rld_dec0(e, &itr, &a);
 		if (z + len >= k) break;
