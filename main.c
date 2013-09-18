@@ -88,7 +88,7 @@ double realtime()
 
 int main(int argc, char *argv[])
 {
-	mrope_t *r6;
+	mrope_t *mr = 0;
 	gzFile fp;
 	kseq_t *ks;
 	int64_t m = 0;
@@ -97,8 +97,9 @@ int main(int argc, char *argv[])
 	kstring_t buf = { 0, 0, 0 };
 	double ct, rt;
 
-	while ((c = getopt(argc, argv, "LTFROtrbdsl:n:m:v:")) >= 0)
+	while ((c = getopt(argc, argv, "LTFROtrbdsl:n:m:v:o:i:")) >= 0)
 		if (c == 'F') flag &= ~FLAG_FOR;
+		else if (c == 'o') freopen(optarg, "w", stdout);
 		else if (c == 'R') flag &= ~FLAG_REV;
 		else if (c == 'O') flag &= ~FLAG_ODD;
 		else if (c == 'T') flag |= FLAG_TREE;
@@ -111,7 +112,15 @@ int main(int argc, char *argv[])
 		else if (c == 'l') block_len = atoi(optarg);
 		else if (c == 'n') max_nodes= atoi(optarg);
 		else if (c == 'v') verbose = atoi(optarg);
-		else if (c == 'm') {
+		else if (c == 'i') {
+			FILE *fp;
+			if ((fp = fopen(optarg, "rb")) == 0) {
+				fprintf(stderr, "[E::%s] fail to open file '%s'\n", __func__, optarg);
+				return 1;
+			}
+			mr = mr_restore(fp);
+			fclose(fp);
+		} else if (c == 'm') {
 			double x;
 			char *p;
 			x = strtod(optarg, &p);
@@ -127,19 +136,24 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "Usage:   ropebwt2 [options] <in.fq.gz>\n\n");
 		fprintf(stderr, "Options: -l INT     leaf block length [%d]\n", block_len);
 		fprintf(stderr, "         -n INT     max number children per internal node (bpr only) [%d]\n", max_nodes);
-		fprintf(stderr, "         -m INT     batch size; 0 for single-string indexing [0]\n");
+		fprintf(stderr, "         -s         build BWT in the reverse lexicographical order (RLO)\n");
+		fprintf(stderr, "         -r         build BWT in RCLO, overriding -s \n");
+		fprintf(stderr, "         -m INT     batch size for multi-string indexing; 0 for single-string [0]\n");
+		fprintf(stderr, "         -t         use 5 threads, only effective with -m\n\n");
+		fprintf(stderr, "         -i FILE    read existing index in the FMR format from FILE [null]\n");
 		fprintf(stderr, "         -L         input in the one-sequence-per-line format\n");
-		fprintf(stderr, "         -b         binary output (5+3 runs starting after 4 bytes)\n");
-		fprintf(stderr, "         -s         build BWT in RLO\n");
-		fprintf(stderr, "         -r         in the RLO mode, complement input sequences (force -s)\n");
 		fprintf(stderr, "         -F         skip forward strand\n");
 		fprintf(stderr, "         -R         skip reverse strand\n");
 		fprintf(stderr, "         -O         suppress end trimming when forward==reverse\n\n");
+		fprintf(stderr, "         -o FILE    write output to FILE [stdout]\n");
+		fprintf(stderr, "         -b         dump the index in the binary FMR format\n");
+		fprintf(stderr, "         -d         dump the index in the binary fermi's FMD format\n");
+		fprintf(stderr, "         -T         output the index in the Newick format (for debugging)\n\n");
 		return 1;
 	}
 
 	liftrlimit();
-	r6 = mr_init(max_nodes, block_len);
+	if (mr == 0) mr = mr_init(max_nodes, block_len);
 	fp = !from_stdin && strcmp(argv[optind], "-")? gzopen(argv[optind], "rb") : gzdopen(fileno(stdin), "rb");
 	ks = kseq_init(fp);
 	ct = cputime(); rt = realtime();
@@ -167,8 +181,8 @@ int main(int argc, char *argv[])
 		}
 		if (flag & FLAG_FOR) {
 			if (!m) {
-				if (flag & FLAG_SRT) mr_insert_string_rlo(r6, s, flag&FLAG_COMP);
-				else mr_insert_string_io(r6, s);
+				if (flag & FLAG_SRT) mr_insert_string_rlo(mr, s, flag&FLAG_COMP);
+				else mr_insert_string_io(mr, s);
 			} else {
 				kputsn((char*)ks->seq.s, ks->seq.l, &buf);
 				kputc(0, &buf);
@@ -183,8 +197,8 @@ int main(int argc, char *argv[])
 			}
 			if (l&1) s[i] = (s[i] >= 1 && s[i] <= 4)? 5 - s[i] : s[i];
 			if (!m) {
-				if (flag & FLAG_SRT) mr_insert_string_rlo(r6, s, flag&FLAG_COMP);
-				else mr_insert_string_io(r6, s);
+				if (flag & FLAG_SRT) mr_insert_string_rlo(mr, s, flag&FLAG_COMP);
+				else mr_insert_string_io(mr, s);
 			} else {
 				kputsn((char*)ks->seq.s, ks->seq.l, &buf);
 				kputc(0, &buf);
@@ -192,7 +206,7 @@ int main(int argc, char *argv[])
 		}
 		if (m && buf.l >= m) {
 			double ct = cputime(), rt = realtime();
-			mr_insert_multi(r6, buf.l, (uint8_t*)buf.s, flag&FLAG_SRT, flag&FLAG_COMP, flag&FLAG_THR);
+			mr_insert_multi(mr, buf.l, (uint8_t*)buf.s, flag&FLAG_SRT, flag&FLAG_COMP, flag&FLAG_THR);
 			if (verbose >= 3) fprintf(stderr, "[M::%s] inserted %ld symbols in %.3f real sec and %.3f CPU sec\n",
 					__func__, (long)buf.l, realtime() - rt, cputime() - ct);
 			buf.l = 0;
@@ -200,7 +214,7 @@ int main(int argc, char *argv[])
 	}
 	if (m && buf.l) {
 		double ct = cputime(), rt = realtime();
-		mr_insert_multi(r6, buf.l, (uint8_t*)buf.s, flag&FLAG_SRT, flag&FLAG_COMP, flag&FLAG_THR);
+		mr_insert_multi(mr, buf.l, (uint8_t*)buf.s, flag&FLAG_SRT, flag&FLAG_COMP, flag&FLAG_THR);
 		if (verbose >= 3) fprintf(stderr, "[M::%s] inserted %ld symbols in %.3f real sec and %.3f CPU sec\n",
 				__func__, (long)buf.l, realtime() - rt, cputime() - ct);
 	}
@@ -210,10 +224,9 @@ int main(int argc, char *argv[])
 	gzclose(fp);
 
 	if (flag & FLAG_BIN) {
-		mr_dump(r6, stdout);
+		mr_dump(mr, stdout);
 	} else if (flag & FLAG_TREE) {
-		for (c = 0; c < 6; ++c) rope_print_node(r6->r[c]->root);
-		putchar('\n');
+		mr_print_tree(mr);
 	} else {
 		mritr_t itr;
 		int len;
@@ -224,7 +237,7 @@ int main(int argc, char *argv[])
 			e = rld_init(6, 3);
 			rld_itr_init(e, &di, 0);
 		}
-		mr_itr_first(r6, &itr, 1);
+		mr_itr_first(mr, &itr, 1);
 		while ((block = mr_itr_next_block(&itr, &len)) != 0) {
 			const uint8_t *q = block + 2, *end = block + 2 + *rle_nptr(block);
 			if (flag & FLAG_RLD) {
@@ -248,6 +261,6 @@ int main(int argc, char *argv[])
 			rld_dump(e, "-");
 		} else if (!(flag & FLAG_BIN)) putchar('\n');
 	}
-	mr_destroy(r6);
+	mr_destroy(mr);
 	return 0;
 }
