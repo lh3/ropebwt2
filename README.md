@@ -38,15 +38,34 @@ carefully optimized for both speed and memory usage. On an old machine with
 2.3GHz Opteron 8376 CPUs, ropeBWT2 is able to index 2.4 billion 101bp reads in
 30 wall-clock hours with peak memory ~45GB.
 
+
 ##Methods Overview
 
-###Run-length encoding
+RopeBWT2 keeps the entire BWT in six B+ trees with the *i*-th tree storing the
+substring *B*[*C*(*i*)+1..*C*(*i*+1)], where *C*(*i*) equals the number of
+symbols lexicographically smaller than *i*. In each B+ tree, an internal node
+keeps the count of symbols in the subtree decending from it; an external node
+keeps a BWT substring in the run-length encoding. The B+ tree achieve a similar
+purpose to the [rope data structure][7], which enables efficient query and
+insertion. RopeBWT2 uses this rope-like data structure to achieve incremental
+construction. This is where word 'rope' in ropeBWT2 comes from.
 
-###Rope on B+-tree
+The original BCR implementation uses static encoding to keep BWT. Although it
+is possible to insert strings to an existing BWT, we have to read through the
+old BWT. Reading the entire BWT may be much slower than the actual insertion.
+With the rope data structure, we can insert one or a few sequences of length
+*m* in *O*(*m*log*n*) time without reading all the BWT. We can thus achieve
+efficient incremental construction.
 
-###Constructing the FM-index
+To achieve RLO for one-string insertion, we insert the symbol that is ahead of
+a suffix at the position based on the rank of the suffix computed from backward
+search. Inserting multiple strings in RLO is essentially a combination of radix
+sort, BCR and single-string insertion. RopeBWT2 uses radix sort to group
+symbols with an identical suffix, compute the rank of the suffix with backward
+search and insert the group of symbols based on the BCR theory. For RCLO, we
+find the insertion points with the complemented sequence but insert with the
+original string.
 
-##Comparison to Similar Algorithms
 
 ###RopeBWT2 vs. ropeBWT
 
@@ -87,3 +106,4 @@ apparently ten times slower and uses more memory on the index construction.
 [4]: https://www.ncbi.nlm.nih.gov/pubmed/22556365
 [5]: https://github.com/BEETL/BEETL
 [6]: https://en.wikipedia.org/wiki/Wavelet_Tree
+[7]: https://en.wikipedia.org/wiki/Rope_%28data_structure%29
