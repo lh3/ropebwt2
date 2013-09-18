@@ -2,6 +2,7 @@
 #include <string.h>
 #include <assert.h>
 #include <stdio.h>
+#include <zlib.h>
 #include "rle.h"
 #include "rope.h"
 
@@ -218,6 +219,10 @@ const uint8_t *rope_itr_next_block(rpitr_t *i, int *n)
 	return ret;
 }
 
+/***********
+ *** I/O ***
+ ***********/
+
 void rope_print_node(const rpnode_t *p)
 {
 	if (p->is_bottom) {
@@ -244,4 +249,71 @@ void rope_print_node(const rpnode_t *p)
 		}
 		putchar(')');
 	}
+}
+
+void rope_dump_node(const rpnode_t *p, FILE *fp)
+{
+	int16_t i, n = p->n;
+	uint8_t is_bottom = p->is_bottom;
+	fwrite(&is_bottom, 1, 1, fp);
+	fwrite(&n, 2, 1, fp);
+	if (is_bottom) {
+		for (i = 0; i < n; ++i) {
+			fwrite(p[i].c, 8, 6, fp);
+			fwrite(p[i].p, 1, *rle_nptr(p[i].p) + 2, fp);
+		}
+	} else {
+		for (i = 0; i < p->n; ++i)
+			rope_dump_node(p[i].p, fp);
+	}
+}
+
+void rope_dump(const rope_t *r, FILE *fp)
+{
+	fwrite(&r->max_nodes, 4, 1, fp);
+	fwrite(&r->block_len, 4, 1, fp);
+	rope_dump_node(r->root, fp);
+}
+
+rpnode_t *rope_restore_node(const rope_t *r, FILE *fp, int64_t c[6])
+{
+	uint8_t is_bottom, a;
+	int16_t i, n;
+	rpnode_t *p;
+	fread(&is_bottom, 1, 1, fp);
+	fread(&n, 2, 1, fp);
+	p = mp_alloc(r->node);
+	p->is_bottom = is_bottom, p->n = n;
+	if (is_bottom) {
+		for (i = 0; i < n; ++i) {
+			uint16_t *q;
+			p[i].p = mp_alloc(r->leaf);
+			q = rle_nptr(p[i].p);
+			fread(p[i].c, 8, 6, fp);
+			fread(q, 2, 1, fp);
+			fread(q + 1, 1, *q, fp);
+		}
+	} else {
+		for (i = 0; i < n; ++i)
+			p[i].p = rope_restore_node(r, fp, p[i].c);
+	}
+	memset(c, 0, 48);
+	for (i = 0; i < n; ++i) {
+		p[i].l = 0;
+		for (a = 0; a < 6; ++a)
+			c[a] += p[i].c[a], p[i].l += p[i].c[a];
+	}
+	return p;
+}
+
+rope_t *rope_restore(FILE *fp)
+{
+	rope_t *r;
+	r = calloc(1, sizeof(rope_t));
+	fread(&r->max_nodes, 4, 1, fp);
+	fread(&r->block_len, 4, 1, fp);
+	r->node = mp_init(sizeof(rpnode_t) * r->max_nodes);
+	r->leaf = mp_init(r->block_len);
+	r->root = rope_restore_node(r, fp, r->c);
+	return r;
 }

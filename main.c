@@ -209,7 +209,12 @@ int main(int argc, char *argv[])
 	kseq_destroy(ks);
 	gzclose(fp);
 
-	if (!(flag&FLAG_TREE)) {
+	if (flag & FLAG_BIN) {
+		mr_dump(r6, stdout);
+	} else if (flag & FLAG_TREE) {
+		for (c = 0; c < 6; ++c) rope_print_node(r6->r[c]->root);
+		putchar('\n');
+	} else {
 		mritr_t itr;
 		int len;
 		const uint8_t *block;
@@ -229,8 +234,6 @@ int main(int argc, char *argv[])
 					rle_dec1(q, c, l);
 					rld_enc(e, &di, l, c);
 				}
-			} else if (flag & FLAG_BIN) {
-				fwrite(q, 1, end - q, stdout);
 			} else {
 				while (q < end) {
 					int c = 0;
@@ -244,9 +247,6 @@ int main(int argc, char *argv[])
 			rld_enc_finish(e, &di);
 			rld_dump(e, "-");
 		} else if (!(flag & FLAG_BIN)) putchar('\n');
-	} else {
-		for (c = 0; c < 6; ++c) rope_print_node(r6->r[c]->root);
-		putchar('\n');
 	}
 	mr_destroy(r6);
 	return 0;

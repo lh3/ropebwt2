@@ -95,6 +95,38 @@ const uint8_t *mr_itr_next_block(mritr_t *i, int *n)
 	return i->a == 6? 0 : s;
 }
 
+/***********
+ *** I/O ***
+ ***********/
+
+void mr_dump(mrope_t *mr, FILE *fp)
+{
+	int i;
+	fwrite("FMR\2", 1, 4, fp);
+	for (i = 0; i < 6; ++i)
+		rope_dump(mr->r[i], fp);
+}
+
+mrope_t *mr_restore(FILE *fp)
+{
+	mrope_t *mr;
+	uint8_t magic[4];
+	int i;
+	fread(magic, 1, 4, fp);
+	mr = calloc(1, sizeof(mrope_t));
+	for (i = 0; i < 6; ++i)
+		mr->r[i] = rope_restore(fp);
+	return mr;
+}
+
+void mr_print_tree(const mrope_t *mr)
+{
+	int a;
+	for (a = 0; a < 6; ++a)
+		rope_print_node(mr->r[a]->root);
+	putchar('\n');
+}
+
 /*****************************************
  *** Inserting multiple strings in RLO ***
  *****************************************/

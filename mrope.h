@@ -27,6 +27,10 @@ extern "C" {
 	void mr_itr_first(mrope_t *r, mritr_t *i, int to_free);
 	const uint8_t *mr_itr_next_block(mritr_t *i, int *n);
 
+	void mr_print_tree(const mrope_t *mr);
+	void mr_dump(mrope_t *mr, FILE *fp);
+	mrope_t *mr_restore(FILE *fp);
+
 #ifdef __cplusplus
 }
 #endif

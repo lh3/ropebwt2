@@ -2,6 +2,7 @@
 #define ROPE_H_
 
 #include <stdint.h>
+#include <stdio.h>
 
 #define ROPE_MAX_DEPTH 80
 
@@ -12,7 +13,7 @@ typedef struct rpnode_s {
 } rpnode_t;
 
 typedef struct {
-	int max_nodes, block_len; // both MUST BE even numbers
+	int32_t max_nodes, block_len; // both MUST BE even numbers
 	int64_t c[6]; // marginal counts
 	rpnode_t *root;
 	void *node, *leaf; // memory pool
@@ -45,6 +46,8 @@ extern "C" {
 	const uint8_t *rope_itr_next_block(rpitr_t *i, int *n);
 
 	void rope_print_node(const rpnode_t *p);
+	void rope_dump(const rope_t *r, FILE *fp);
+	rope_t *rope_restore(FILE *fp);
 	
 #ifdef __cplusplus
 }
