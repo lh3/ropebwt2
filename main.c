@@ -207,7 +207,7 @@ int main(int argc, char *argv[])
 		if (m && buf.l >= m) {
 			double ct = cputime(), rt = realtime();
 			mr_insert_multi(mr, buf.l, (uint8_t*)buf.s, flag&FLAG_SRT, flag&FLAG_COMP, flag&FLAG_THR);
-			if (verbose >= 3) fprintf(stderr, "[M::%s] inserted %ld symbols in %.3f real sec and %.3f CPU sec\n",
+			if (verbose >= 3) fprintf(stderr, "[M::%s] inserted %ld symbols in %.3f sec, %.3f CPU sec\n",
 					__func__, (long)buf.l, realtime() - rt, cputime() - ct);
 			buf.l = 0;
 		}
@@ -215,10 +215,10 @@ int main(int argc, char *argv[])
 	if (m && buf.l) {
 		double ct = cputime(), rt = realtime();
 		mr_insert_multi(mr, buf.l, (uint8_t*)buf.s, flag&FLAG_SRT, flag&FLAG_COMP, flag&FLAG_THR);
-		if (verbose >= 3) fprintf(stderr, "[M::%s] inserted %ld symbols in %.3f real sec and %.3f CPU sec\n",
+		if (verbose >= 3) fprintf(stderr, "[M::%s] inserted %ld symbols in %.3f sec, %.3f CPU sec\n",
 				__func__, (long)buf.l, realtime() - rt, cputime() - ct);
 	}
-	if (verbose >= 3) fprintf(stderr, "[M::%s] constructed FM-index in %.3f real sec and %.3f CPU sec\n",
+	if (verbose >= 3) fprintf(stderr, "[M::%s] constructed FM-index in %.3f sec, %.3f CPU sec\n",
 			__func__, realtime() - rt, cputime() - ct);
 	kseq_destroy(ks);
 	gzclose(fp);

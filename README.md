@@ -33,6 +33,11 @@ smallest sequence. This would eliminate an array to map the rank of a sequence
 to its index in the input. This array is usually not compressible unless the
 input is sorted.
 
+RopeBWT2 is developed for indexing hundreds of billions of symbols. It has been
+carefully optimized for both speed and memory usage. On an old machine with
+2.3GHz Opteron 8376 CPUs, ropeBWT2 is able to index 2.4 billion 101bp reads in
+30 wall-clock hours with peak memory ~45GB.
+
 ##Methods Overview
 
 ###Run-length encoding
@@ -51,13 +56,13 @@ of a B+ tree and single-string incremental FM-index on top of a red-black tree.
 BCR is later extended to support RLO and RCLO as well.
 
 The BCR implementation in ropeBWT is the fastest so far for short reads, faster
-than ropeBWT2. This BCR implementation is still the preferred choice for
+than ropeBWT2. The legacy BCR implementation is still the preferred choice for
 constructing the FM-index of short reads for the assembly purpose. However,
 with parallelized incremental multi-string insertion, ropeBWT2 is faster than
 ropeBWT for incremental index construction and works much better with long
-strings in comparison to BCR. RopeBWT2 also uses more advanced run-length
-encoding, which will be more space efficient for highly repetitive inputs and
-might make it easier for new algorithms.
+strings. RopeBWT2 also uses more advanced run-length encoding, which will be
+more space efficient for highly repetitive inputs and opens the possibility for
+inserting a run in addition individual symbols.
 
 ###RopeBWT2 vs. BEETL
 
