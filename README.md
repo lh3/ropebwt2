@@ -42,7 +42,7 @@ carefully optimized for both speed and memory usage. On an old machine with
 ##Methods Overview
 
 RopeBWT2 keeps the entire BWT in six B+ trees with the *i*-th tree storing the
-substring *B*[*C*(*i*)+1..*C*(*i*+1)], where *C*(*i*) equals the number of
+substring B[C(i)+1..C(i+1)], where C(i) equals the number of
 symbols lexicographically smaller than *i*. In each B+ tree, an internal node
 keeps the count of symbols in the subtree decending from it; an external node
 keeps a BWT substring in the run-length encoding. The B+ tree achieve a similar
@@ -54,7 +54,7 @@ The original BCR implementation uses static encoding to keep BWT. Although it
 is possible to insert strings to an existing BWT, we have to read through the
 old BWT. Reading the entire BWT may be much slower than the actual insertion.
 With the rope data structure, we can insert one or a few sequences of length
-*m* in *O*(*m*log*n*) time without reading all the BWT. We can thus achieve
+*m* in O(mlogn) time without reading all the BWT. We can thus achieve
 efficient incremental construction.
 
 To achieve RLO for one-string insertion, we insert the symbol that is ahead of
