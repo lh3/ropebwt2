@@ -205,12 +205,11 @@ void rope_itr_first(const rope_t *rope, rpitr_t *i)
 		++i->d, i->pa[i->d] = i->pa[i->d - 1]->p;
 }
 
-const uint8_t *rope_itr_next_block(rpitr_t *i, int *n)
+const uint8_t *rope_itr_next_block(rpitr_t *i)
 {
 	const uint8_t *ret;
 	assert(i->d < ROPE_MAX_DEPTH); // a B+ tree should not be that tall
 	if (i->d < 0) return 0;
-	*n = i->rope->block_len;
 	ret = (uint8_t*)i->pa[i->d][i->ia[i->d]].p;
 	while (i->d >= 0 && ++i->ia[i->d] == i->pa[i->d]->n) i->ia[i->d--] = 0; // backtracking
 	if (i->d >= 0)

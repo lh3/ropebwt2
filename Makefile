@@ -17,8 +17,9 @@ ropebwt2:rle.o rope.o mrope.o rld0.o main.o
 
 rle.o:rle.h
 rope.o:rle.h rope.h
+mrope.o:rope.h mrope.h
 rld0.o:rld0.h
-main.o:rle.h
+main.o:rle.h mrope.h rld0.h
 
 clean:
 		rm -fr gmon.out *.o ext/*.o a.out $(PROG) *~ *.a *.dSYM session*

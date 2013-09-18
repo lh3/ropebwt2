@@ -79,12 +79,11 @@ void mr_itr_first(mrope_t *r, mritr_t *i, int to_free)
 	rope_itr_first(i->r->r[0], &i->i);
 }
 
-const uint8_t *mr_itr_next_block(mritr_t *i, int *n)
+const uint8_t *mr_itr_next_block(mritr_t *i)
 {
 	const uint8_t *s;
-	*n = 0;
 	if (i->a >= 6) return 0;
-	while ((s = rope_itr_next_block(&i->i, n)) == 0) {
+	while ((s = rope_itr_next_block(&i->i)) == 0) {
 		if (i->to_free) {
 			rope_destroy(i->r->r[i->a]);
 			i->r->r[i->a] = 0;

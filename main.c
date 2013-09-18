@@ -92,7 +92,7 @@ int main(int argc, char *argv[])
 	gzFile fp;
 	kseq_t *ks;
 	int64_t m = 0;
-	int c, i, block_len = 512, max_nodes = 64, from_stdin = 0, verbose = 3;
+	int c, i, block_len = ROPE_DEF_BLOCK_LEN, max_nodes = ROPE_DEF_MAX_NODES, from_stdin = 0, verbose = 3;
 	int flag = FLAG_FOR | FLAG_REV | FLAG_ODD;
 	kstring_t buf = { 0, 0, 0 };
 	double ct, rt;
@@ -229,7 +229,6 @@ int main(int argc, char *argv[])
 		mr_print_tree(mr);
 	} else {
 		mritr_t itr;
-		int len;
 		const uint8_t *block;
 		rld_t *e = 0;
 		rlditr_t di;
@@ -238,7 +237,7 @@ int main(int argc, char *argv[])
 			rld_itr_init(e, &di, 0);
 		}
 		mr_itr_first(mr, &itr, 1);
-		while ((block = mr_itr_next_block(&itr, &len)) != 0) {
+		while ((block = mr_itr_next_block(&itr)) != 0) {
 			const uint8_t *q = block + 2, *end = block + 2 + *rle_nptr(block);
 			if (flag & FLAG_RLD) {
 				while (q < end) {

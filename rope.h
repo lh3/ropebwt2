@@ -5,6 +5,8 @@
 #include <stdio.h>
 
 #define ROPE_MAX_DEPTH 80
+#define ROPE_DEF_MAX_NODES 64
+#define ROPE_DEF_BLOCK_LEN 512
 
 typedef struct rpnode_s {
 	struct rpnode_s *p; // child; at the bottom level, $p points to a string with the first 2 bytes giving the number of runs (#runs)
@@ -43,7 +45,7 @@ extern "C" {
 	#define rope_rank1a(rope, x, cx) rope_rank2a(rope, x, -1, cx, 0)
 
 	void rope_itr_first(const rope_t *rope, rpitr_t *i);
-	const uint8_t *rope_itr_next_block(rpitr_t *i, int *n);
+	const uint8_t *rope_itr_next_block(rpitr_t *i);
 
 	void rope_print_node(const rpnode_t *p);
 	void rope_dump(const rope_t *r, FILE *fp);
