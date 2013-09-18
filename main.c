@@ -147,7 +147,7 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "         -O         suppress end trimming when forward==reverse\n\n");
 		fprintf(stderr, "         -o FILE    write output to FILE [stdout]\n");
 		fprintf(stderr, "         -b         dump the index in the binary FMR format\n");
-		fprintf(stderr, "         -d         dump the index in the binary fermi's FMD format\n");
+		fprintf(stderr, "         -d         dump the index in fermi's FMD format\n");
 		fprintf(stderr, "         -T         output the index in the Newick format (for debugging)\n\n");
 		return 1;
 	}
