@@ -3,7 +3,12 @@
 
 #include "rope.h"
 
+#define MR_SO_IO    0
+#define MR_SO_RLO   1
+#define MR_SO_RCLO  2
+
 typedef struct {
+	uint8_t so; // sorting order
 	rope_t *r[6];
 } mrope_t; // multi-rope
 
@@ -20,31 +25,25 @@ extern "C" {
 	/**
 	 * Initiate a multi-rope
 	 *
-	 * @param max_nodes   maximum number of nodes in an internal node; use ROPE_DEF_MAX_NODES (64) if unsure
-	 * @param block_len   maximum block length in an external node; use ROPE_DEF_BLOCK_LEN (256) if unsure
+	 * @param max_nodes     maximum number of nodes in an internal node; use ROPE_DEF_MAX_NODES (64) if unsure
+	 * @param block_len     maximum block length in an external node; use ROPE_DEF_BLOCK_LEN (256) if unsure
+	 * @param sorting_order the order in which sequences are added; possible values defined by the MR_SO_* macros
 	 */
-	mrope_t *mr_init(int max_nodes, int block_len);
+	mrope_t *mr_init(int max_nodes, int block_len, int sorting_order);
 
 	void mr_destroy(mrope_t *r);
 
 	/**
-	 * Insert a string in the input order
+	 * Insert one string into the index
 	 *
-	 * @param r        multi-rope
-	 * @param str      NULL terminated, reversed input string
+	 * @param r      multi-rope
+	 * @param str    the *reverse* of the input string (important: it is reversed!)
 	 */
-	void mr_insert_string_io(mrope_t *r, const uint8_t *str);
+	int64_t mr_insert1(mrope_t *r, const uint8_t *str);
 
-	/**
-	 * Insert a string in the sorted order
-	 *
-	 * @param r        multi-rope
-	 * @param str      NULL terminated, reversed input string
-	 * @param is_comp  if true, in RCLO; otherwise in RLO
-	 *
-	 * Note: Different input orders should not be mixed.
-	 */
-	void mr_insert_string_rlo(mrope_t *r, const uint8_t *str, int is_comp);
+	// mr_insert1() is calling the following two functions
+	int64_t mr_insert_string_io(mrope_t *r, const uint8_t *str);
+	int64_t mr_insert_string_rlo(mrope_t *r, const uint8_t *str, int is_comp);
 
 	/**
 	 * Insert multiple strings
@@ -52,11 +51,9 @@ extern "C" {
 	 * @param mr       multi-rope
 	 * @param len      total length of $s
 	 * @param s        concatenated, NULL delimited, reversed input strings
-	 * @param is_srt   true if insert in RLO or RCLO; otherwise in the input order
-	 * @param is_comp  when is_srt is set, true for RCLO; false for RLO
 	 * @param is_thr   true to use 5 threads
 	 */
-	void mr_insert_multi(mrope_t *mr, int64_t len, const uint8_t *s, int is_srt, int is_comp, int is_thr);
+	void mr_insert_multi(mrope_t *mr, int64_t len, const uint8_t *s, int is_thr);
 
 	/**
 	 * Put the iterator at the start of the index

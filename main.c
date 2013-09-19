@@ -26,9 +26,7 @@ static unsigned char seq_nt6_table[128] = {
 #define FLAG_ODD 0x4
 #define FLAG_BIN 0x8
 #define FLAG_TREE 0x10
-#define FLAG_COMP 0x20
 #define FLAG_THR 0x40
-#define FLAG_SRT 0x80
 #define FLAG_LINE 0x100
 #define FLAG_RLD 0x200
 
@@ -92,23 +90,23 @@ int main(int argc, char *argv[])
 	gzFile fp;
 	kseq_t *ks;
 	int64_t m = 0;
-	int c, i, block_len = ROPE_DEF_BLOCK_LEN, max_nodes = ROPE_DEF_MAX_NODES, from_stdin = 0, verbose = 3;
-	int flag = FLAG_FOR | FLAG_REV | FLAG_ODD;
+	int c, i, block_len = ROPE_DEF_BLOCK_LEN, max_nodes = ROPE_DEF_MAX_NODES, from_stdin = 0, verbose = 3, so = MR_SO_IO;
+	int flag = FLAG_FOR | FLAG_REV;
 	kstring_t buf = { 0, 0, 0 };
 	double ct, rt;
 
-	while ((c = getopt(argc, argv, "LTFROtrbdsl:n:m:v:o:i:")) >= 0)
-		if (c == 'F') flag &= ~FLAG_FOR;
-		else if (c == 'o') freopen(optarg, "w", stdout);
+	while ((c = getopt(argc, argv, "LTFRCtrbdsl:n:m:v:o:i:")) >= 0) {
+		if (c == 'o') freopen(optarg, "w", stdout);
+		else if (c == 'F') flag &= ~FLAG_FOR;
 		else if (c == 'R') flag &= ~FLAG_REV;
-		else if (c == 'O') flag &= ~FLAG_ODD;
+		else if (c == 'C') flag |= FLAG_ODD;
 		else if (c == 'T') flag |= FLAG_TREE;
 		else if (c == 'b') flag |= FLAG_BIN;
 		else if (c == 't') flag |= FLAG_THR;
-		else if (c == 's') flag |= FLAG_SRT;
-		else if (c == 'r') flag |= FLAG_SRT | FLAG_COMP;
 		else if (c == 'L') flag |= FLAG_LINE;
 		else if (c == 'd') flag |= FLAG_RLD;
+		else if (c == 's') so = so != MR_SO_RCLO? MR_SO_RLO : MR_SO_RCLO;
+		else if (c == 'r') so = MR_SO_RCLO;
 		else if (c == 'l') block_len = atoi(optarg);
 		else if (c == 'n') max_nodes= atoi(optarg);
 		else if (c == 'v') verbose = atoi(optarg);
@@ -129,6 +127,7 @@ int main(int argc, char *argv[])
 			else if (*p == 'G' || *p == 'g') x *= 1024 * 1024 * 1024;
 			m = (int64_t)(x * .97) + 1;
 		}
+	}
 
 	from_stdin = !isatty(fileno(stdin));
 	if (optind == argc && !from_stdin) {
@@ -140,11 +139,11 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "         -r         build BWT in RCLO, overriding -s \n");
 		fprintf(stderr, "         -m INT     batch size for multi-string indexing; 0 for single-string [0]\n");
 		fprintf(stderr, "         -t         use 5 threads, only effective with -m\n\n");
-		fprintf(stderr, "         -i FILE    read existing index in the FMR format from FILE [null]\n");
+		fprintf(stderr, "         -i FILE    read existing index in the FMR format from FILE, overriding -s/-r [null]\n");
 		fprintf(stderr, "         -L         input in the one-sequence-per-line format\n");
 		fprintf(stderr, "         -F         skip forward strand\n");
 		fprintf(stderr, "         -R         skip reverse strand\n");
-		fprintf(stderr, "         -O         suppress end trimming when forward==reverse\n\n");
+		fprintf(stderr, "         -C         cut one base if forward==reverse\n\n");
 		fprintf(stderr, "         -o FILE    write output to FILE [stdout]\n");
 		fprintf(stderr, "         -b         dump the index in the binary FMR format\n");
 		fprintf(stderr, "         -d         dump the index in fermi's FMD format\n");
@@ -153,7 +152,7 @@ int main(int argc, char *argv[])
 	}
 
 	liftrlimit();
-	if (mr == 0) mr = mr_init(max_nodes, block_len);
+	if (mr == 0) mr = mr_init(max_nodes, block_len, so);
 	fp = !from_stdin && strcmp(argv[optind], "-")? gzopen(argv[optind], "rb") : gzdopen(fileno(stdin), "rb");
 	ks = kseq_init(fp);
 	ct = cputime(); rt = realtime();
@@ -180,13 +179,10 @@ int main(int argc, char *argv[])
 			ks->seq.l = l;
 		}
 		if (flag & FLAG_FOR) {
-			if (!m) {
-				if (flag & FLAG_SRT) mr_insert_string_rlo(mr, s, flag&FLAG_COMP);
-				else mr_insert_string_io(mr, s);
-			} else {
+			if (m) {
 				kputsn((char*)ks->seq.s, ks->seq.l, &buf);
 				kputc(0, &buf);
-			}
+			} else mr_insert1(mr, s);
 		}
 		if (flag & FLAG_REV) {
 			for (i = 0; i < l>>1; ++i) {
@@ -196,17 +192,14 @@ int main(int argc, char *argv[])
 				s[i] = tmp;
 			}
 			if (l&1) s[i] = (s[i] >= 1 && s[i] <= 4)? 5 - s[i] : s[i];
-			if (!m) {
-				if (flag & FLAG_SRT) mr_insert_string_rlo(mr, s, flag&FLAG_COMP);
-				else mr_insert_string_io(mr, s);
-			} else {
+			if (m) {
 				kputsn((char*)ks->seq.s, ks->seq.l, &buf);
 				kputc(0, &buf);
-			}
+			} else mr_insert1(mr, s);
 		}
 		if (m && buf.l >= m) {
 			double ct = cputime(), rt = realtime();
-			mr_insert_multi(mr, buf.l, (uint8_t*)buf.s, flag&FLAG_SRT, flag&FLAG_COMP, flag&FLAG_THR);
+			mr_insert_multi(mr, buf.l, (uint8_t*)buf.s, flag&FLAG_THR);
 			if (verbose >= 3) fprintf(stderr, "[M::%s] inserted %ld symbols in %.3f sec, %.3f CPU sec\n",
 					__func__, (long)buf.l, realtime() - rt, cputime() - ct);
 			buf.l = 0;
@@ -214,7 +207,7 @@ int main(int argc, char *argv[])
 	}
 	if (m && buf.l) {
 		double ct = cputime(), rt = realtime();
-		mr_insert_multi(mr, buf.l, (uint8_t*)buf.s, flag&FLAG_SRT, flag&FLAG_COMP, flag&FLAG_THR);
+		mr_insert_multi(mr, buf.l, (uint8_t*)buf.s, flag&FLAG_THR);
 		if (verbose >= 3) fprintf(stderr, "[M::%s] inserted %ld symbols in %.3f sec, %.3f CPU sec\n",
 				__func__, (long)buf.l, realtime() - rt, cputime() - ct);
 	}

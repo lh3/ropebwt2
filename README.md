@@ -39,6 +39,31 @@ carefully optimized for both speed and memory usage. On an old machine with
 30 wall-clock hours with peak memory ~45GB.
 
 
+##Examples
+
+1. Construct the BWT for sequences in the input order:
+
+        ropebwt2 -o out.bwt in.fa
+
+2. Construct the BWT for sequences in RLO and output the BWT in the ropebwt2
+   binary format:
+
+        ropebwt2 -bso out.fmr in.fa
+
+3. Construct the BWT for sequences in RLO, processing 4GB symbols at a time
+   with multithreading:
+
+        ropebwt2 -brtm4g in.fa > out.fmr
+
+   Note that for sequence reads, processing multiple sequences together is
+   faster due to possible multi-threading and fewer cache misses.
+
+4. Add sequences to an existing index with the sorting order defined by the
+   existing index (incremental construction):
+
+        ropebwt2 -bi in.fmr in.fa > out.fmr
+
+
 ##Methods Overview
 
 RopeBWT2 keeps the entire BWT in six B+ trees with the *i*-th tree storing the

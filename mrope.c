@@ -11,11 +11,13 @@
  *** Single-string insertion ***
  *******************************/
 
-mrope_t *mr_init(int max_nodes, int block_len)
+mrope_t *mr_init(int max_nodes, int block_len, int sorting_order)
 {
 	int a;
 	mrope_t *r;
+	assert(sorting_order >= 0 && sorting_order <= 2);
 	r = calloc(1, sizeof(mrope_t));
+	r->so = sorting_order;
 	for (a = 0; a != 6; ++a)
 		r->r[a] = rope_init(max_nodes, block_len);
 	return r;
@@ -28,7 +30,7 @@ void mr_destroy(mrope_t *r)
 		if (r->r[a]) rope_destroy(r->r[a]);
 }
 
-void mr_insert_string_io(mrope_t *r, const uint8_t *str)
+int64_t mr_insert_string_io(mrope_t *r, const uint8_t *str)
 {
 	const uint8_t *p;
 	int64_t x;
@@ -39,10 +41,10 @@ void mr_insert_string_io(mrope_t *r, const uint8_t *str)
 		x = rope_insert_run(r->r[a], x, *p, 1, 0);
 		while (--a >= 0) x += r->r[a]->c[*p];
 	}
-	rope_insert_run(r->r[a], x, *p, 1, 0);
+	return rope_insert_run(r->r[a], x, *p, 1, 0);
 }
 
-void mr_insert_string_rlo(mrope_t *r, const uint8_t *str, int is_comp)
+int64_t mr_insert_string_rlo(mrope_t *r, const uint8_t *str, int is_comp)
 {
 	int b;
 	int64_t tl[6], tu[6], l, u;
@@ -66,7 +68,14 @@ void mr_insert_string_rlo(mrope_t *r, const uint8_t *str, int is_comp)
 			u = l;
 		}
 	}
-	rope_insert_run(r->r[b], l, 0, 1, 0);
+	return rope_insert_run(r->r[b], l, 0, 1, 0);
+}
+
+int64_t mr_insert1(mrope_t *mr, const uint8_t *str)
+{
+	if (mr->so == MR_SO_RLO) return mr_insert_string_rlo(mr, str, 0);
+	else if (mr->so == MR_SO_RCLO) return mr_insert_string_rlo(mr, str, 1);
+	else return mr_insert_string_io(mr, str);
 }
 
 /**********************
@@ -101,7 +110,8 @@ const uint8_t *mr_itr_next_block(mritr_t *i)
 void mr_dump(mrope_t *mr, FILE *fp)
 {
 	int i;
-	fwrite("FMR\2", 1, 4, fp);
+	fwrite("RB\2", 1, 3, fp);
+	fwrite(&mr->so, 1, 1, fp);
 	for (i = 0; i < 6; ++i)
 		rope_dump(mr->r[i], fp);
 }
@@ -113,6 +123,7 @@ mrope_t *mr_restore(FILE *fp)
 	int i;
 	fread(magic, 1, 4, fp);
 	mr = calloc(1, sizeof(mrope_t));
+	mr->so = magic[3];
 	for (i = 0; i < 6; ++i)
 		mr->r[i] = rope_restore(fp);
 	return mr;
@@ -210,17 +221,16 @@ static void *worker(void *data)
 	return 0;
 }
 
-void mr_insert_multi(mrope_t *mr, int64_t len, const uint8_t *s, int is_srt, int is_comp, int is_thr)
+void mr_insert_multi(mrope_t *mr, int64_t len, const uint8_t *s, int is_thr)
 {
 	int64_t k, m, n0;
-	int b;
+	int b, is_srt = (mr->so != 0), is_comp = (mr->so == 2);
 	volatile int n_fin_workers = 0;
 	triple64_t *a[2], *curr, *prev, *swap;
 	pthread_t *tid = 0;
 	worker_t *w = 0;
 
 	assert(len > 0 && s[len-1] == 0);
-	if (!is_srt) is_comp = 0;
 	{ // split into short strings
 		cstr_t p, q, end = s + len;
 		for (p = s, m = 0; p != end; ++p) // count #sentinels
