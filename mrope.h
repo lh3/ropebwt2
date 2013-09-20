@@ -55,6 +55,9 @@ extern "C" {
 	 */
 	void mr_insert_multi(mrope_t *mr, int64_t len, const uint8_t *s, int is_thr);
 
+	void mr_rank2a(const mrope_t *mr, int64_t x, int64_t y, int64_t *cx, int64_t *cy);
+	#define mr_rank1a(mr, x, cx) mr_rank2a(mr, x, -1, cx, 0)
+
 	/**
 	 * Put the iterator at the start of the index
 	 *
@@ -80,5 +83,16 @@ extern "C" {
 #ifdef __cplusplus
 }
 #endif
+
+static inline void mr_get_ac(const mrope_t *mr, int64_t ac[6])
+{
+	int a, b;
+	int64_t c[6];
+	for (a = 0; a < 6; ++a) c[a] = 0;
+	for (a = 0; a < 6; ++a)
+		for (b = 0; b < 6; ++b)
+			c[b] += mr->r[a]->c[b];
+	for (a = 1, ac[0] = 0; a < 6; ++a) ac[a] = ac[a-1] + c[a-1];
+}
 
 #endif

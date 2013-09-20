@@ -78,6 +78,43 @@ int64_t mr_insert1(mrope_t *mr, const uint8_t *str)
 	else return mr_insert_string_io(mr, str);
 }
 
+void mr_rank2a(const mrope_t *mr, int64_t x, int64_t y, int64_t *cx, int64_t *cy)
+{
+	int a, b;
+	int64_t z, c[6], l;
+	memset(c, 0, 48);
+	for (a = 0, z = 0; a < 6; ++a) {
+		const int64_t *ca = mr->r[a]->c;
+		l = ca[0] + ca[1] + ca[2] + ca[3] + ca[4] + ca[5];
+		if (z + l >= x) break;
+		for (b = 0; b < 6; ++b) c[b] += ca[b];
+		z += l;
+	}
+	assert(a != 6);
+	if (y >= 0 && z + l >= y) { // [x,y) is in the same bucket
+		rope_rank2a(mr->r[a], x - z, y - z, cx, cy);
+		for (b = 0; b < 6; ++b)
+			cx[b] += c[b], cy[b] += c[b];
+		return;
+	}
+	if (x != z) rope_rank1a(mr->r[a], x - z, cx);
+	else memset(cx, 0, 48);
+	for (b = 0; b < 6; ++b)
+		cx[b] += c[b], c[b] += mr->r[a]->c[b];
+	if (y < 0) return;
+	for (++a, z += l; a < 6; ++a) {
+		const int64_t *ca = mr->r[a]->c;
+		l = ca[0] + ca[1] + ca[2] + ca[3] + ca[4] + ca[5];
+		if (z + l >= y) break;
+		for (b = 0; b < 6; ++b) c[b] += ca[b];
+		z += l;
+	}
+	assert(a != 6);
+	if (y != z + l) rope_rank1a(mr->r[a], y - z, cy);
+	else for (b = 0; b < 6; ++b) cy[b] = mr->r[a]->c[b];
+	for (b = 0; b < 6; ++b) cy[b] += c[b];
+}
+
 /**********************
  *** Mrope iterator ***
  **********************/
