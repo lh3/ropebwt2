@@ -30,26 +30,13 @@ void mr_destroy(mrope_t *r)
 		if (r->r[a]) rope_destroy(r->r[a]);
 }
 
-int64_t mr_insert_string_io(mrope_t *r, const uint8_t *str)
+int64_t mr_insert1(mrope_t *r, const uint8_t *str)
 {
-	const uint8_t *p;
-	int64_t x;
-	int a;
-	for (a = 0, x = 0; a != 6; ++a)
-		x += r->r[a]->c[0];
-	for (p = str, a = 0; *p; a = *p++) {
-		x = rope_insert_run(r->r[a], x, *p, 1, 0);
-		while (--a >= 0) x += r->r[a]->c[*p];
-	}
-	return rope_insert_run(r->r[a], x, *p, 1, 0);
-}
-
-int64_t mr_insert_string_rlo(mrope_t *r, const uint8_t *str, int is_comp)
-{
-	int b;
 	int64_t tl[6], tu[6], l, u;
 	const uint8_t *p;
-	for (l = u = 0, b = 0; b != 6; ++b) u += r->r[b]->c[0];
+	int b, is_srt = (r->so != MR_SO_IO), is_comp = (r->so == MR_SO_RCLO);
+	for (u = 0, b = 0; b != 6; ++b) u += r->r[b]->c[0];
+	l = is_srt? 0 : u;
 	for (p = str, b = 0; *p; b = *p++) {
 		int a;
 		if (l != u) {
@@ -69,13 +56,6 @@ int64_t mr_insert_string_rlo(mrope_t *r, const uint8_t *str, int is_comp)
 		}
 	}
 	return rope_insert_run(r->r[b], l, 0, 1, 0);
-}
-
-int64_t mr_insert1(mrope_t *mr, const uint8_t *str)
-{
-	if (mr->so == MR_SO_RLO) return mr_insert_string_rlo(mr, str, 0);
-	else if (mr->so == MR_SO_RCLO) return mr_insert_string_rlo(mr, str, 1);
-	else return mr_insert_string_io(mr, str);
 }
 
 void mr_rank2a(const mrope_t *mr, int64_t x, int64_t y, int64_t *cx, int64_t *cy)
@@ -261,7 +241,7 @@ static void *worker(void *data)
 void mr_insert_multi(mrope_t *mr, int64_t len, const uint8_t *s, int is_thr)
 {
 	int64_t k, m, n0;
-	int b, is_srt = (mr->so != 0), is_comp = (mr->so == 2);
+	int b, is_srt = (mr->so != MR_SO_IO), is_comp = (mr->so == MR_SO_RCLO);
 	volatile int n_fin_workers = 0;
 	triple64_t *a[2], *curr, *prev, *swap;
 	pthread_t *tid = 0;
