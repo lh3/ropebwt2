@@ -41,10 +41,6 @@ extern "C" {
 	 */
 	int64_t mr_insert1(mrope_t *r, const uint8_t *str);
 
-	// mr_insert1() is calling the following two functions
-	int64_t mr_insert_string_io(mrope_t *r, const uint8_t *str);
-	int64_t mr_insert_string_rlo(mrope_t *r, const uint8_t *str, int is_comp);
-
 	/**
 	 * Insert multiple strings
 	 *
