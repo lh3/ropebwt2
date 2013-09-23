@@ -1,0 +1,121 @@
+\documentclass[10pt]{article}
+\usepackage{amsmath}
+
+\usepackage[ruled,vlined]{algorithm2e}
+
+\title{Constructing BWT for Sorted Strings}
+\author{Heng Li}
+
+\begin{document}
+\maketitle
+
+Let $\Sigma=\{\$,A,C,G,T,N\}$ be the alphabet for DNA with a predefined
+lexicographical order $\$<A<C<G<T<N$, where $\$$ is the sentinel.  Each
+elememnt in $\Sigma$ is called a \emph{symbol} and a sequence of symbol called
+a \emph{string}. Let $|P|$ denote the length of $P$ and $P[i]$ the symbol at
+position $i$. If $P[|P|-1]=\$$ and no other symbols in $P$ are sentinels, we
+call $P$ as a \emph{text} or a \emph{document}. For simplicity, we also let
+$P[-1]=\$$ for any string $P$.
+
+Given a list of strings $P_i$, $0\le i<m$, their concatenation $T=P_0\ldots
+P_{m-1}$ is called a \emph{collection}. Let $\$_i$ be the sentinel of $P_i$.
+We futher introduce the lexicographical order between sentinels:
+$\$_0<\cdots<\$_{m-1}<A<C<G<T<N$, such that when comparing suffixes, we do not
+need to compare beyond sentinels.
+
+The \emph{suffix array} of $T$ is an integer array $S$ such that $S(i)$, $0\le
+i<|T|$, is the position of the $i$-th smallest suffix in the collection $T$.
+The \emph{Burrows-Wheeler Transform}, or \emph{BWT}, of $T$ can be computed as
+$B[i]=T[S(i)-1]$. For the description of the algorithm, we segment $B$ to
+$B=B_{\$}B_AB_CB_GB_TB_N$, where $B_a[i]=B[i+C(a)]$ and $C(a)=|\{j:T[j]<a\}|$
+being the array of accumulative counts. By the definition of suffix array and
+BWT, $B_a$ consists of all the symbols with their next symbol in $T$ being
+$a$.
+
+\begin{algorithm}[h]
+\DontPrintSemicolon
+\footnotesize
+\KwIn{Existing BWT $B$ for text $T$ and a string $P$}
+\KwOut{BWT $B$ for text $T\circ P$}
+\BlankLine
+\textbf{Function} {\sc InsertIO1}$(B,P)$
+\Begin {
+	$k\gets|\{i:B[i]=\$\}|$\;
+	$c\gets\$$\;
+	\For{$i\gets|P|-1$ \KwTo $-1$} {
+		\emph{Insert $P[i]$ after $k$ symbols in $B_c$}\;
+		$k\gets {\rm rank}(P[i],k;B_c)+|\{a<c,j:B_a[j]=P[i]\}|$\;
+		$c\gets P[i]$
+	}
+	{\bf return} $B$
+}
+\caption{Insert one string in the input order}
+\end{algorithm}
+
+\begin{algorithm}[ht]
+\DontPrintSemicolon
+\footnotesize
+\KwIn{Existing BWT $B$ in RLO/RCLO and a string $P$}
+\KwOut{BWT $B$ with $P$ inserted in RLO/RCLO}
+\BlankLine
+\textbf{Function} {\sc InsertRLO1}$(B,P,{\it is\_RCLO})$
+\Begin {
+	$[l,u)\gets \big[0,|\{i:B[i]=\$\}|\big)$\;
+	$c\gets \$$\;
+	\For{$i\gets|P|-1$ \KwTo $-1$} {
+		$[l,u)\gets${\sc InsertAux}$(B,l,u,c,P[i],{\it is\_RCLO})$\;
+		$c\gets P[i]$\;
+	}
+	{\bf return} $B$
+}
+\textbf{Function} {\sc InsertAux}$(B,l,u,c,c',{\it is\_RCLO})$
+\Begin {
+	$k\gets l$\;
+	\If{is\_RCLO is {\bf true} {\bf and} $c\not={\rm ``N"}$} {
+		\For{$a=\$$ {\bf or} $c'<a<{\rm ``N"}$} {
+			$k\gets k+\big[{\rm rank}(a,u;B_c)-{\rm rank}(a,l;B_c)\big]$\;
+		}
+	} \Else {
+		\For{$\$\le a<c'$} {
+			$k\gets k+\big[{\rm rank}(a,u;B_c)-{\rm rank}(a,l;B_c)\big]$\;
+		}
+	}
+	\emph{Insert $c'$ after $k$ symbols in $B_c$}\;
+	$m\gets|\{a<c,j:B_a[j]=c'\}|$\;
+	{\bf return} $\big[{\rm rank}(c',l;B_c)+m,{\rm rank}(c',u;B_c)+m\big)$\;
+}
+\caption{Insert one string in RLO/RCLO}
+\end{algorithm}
+
+\begin{algorithm}[ht]
+\DontPrintSemicolon
+\footnotesize
+\KwIn{Existing BWT $B$ for text $T$ and a set of strings $\{P_j\}$}
+\KwOut{Updated BWT $B$ with strings inserted in the specified order}
+\BlankLine
+\textbf{Function} {\sc InsertMultiRLO}$(B,\{P_j\},{\it is\_sorted},{\it is\_RCLO})$
+\Begin {
+	\For{$0\le j<|\{P_j\}|$} {
+		$A(j).i\gets j$\;
+		$A(j).c\gets \$$\;
+		$[A(j).l,A(j).u)\gets [0,|\{i:B[i]=\$\}|)$\;
+		\If{is\_sorted is {\bf false}} {
+			$A(j).l\gets A(j).u$
+		}
+	}
+	$d\gets 0$\;
+	\While{$|A|\not=0$} {
+		\emph{Stable sort array $A$ by $A(\cdot).c$}\;
+		\For{$0\le j<|A|$} {
+			$c\gets A(j).c$\;
+			$A(j).c\gets P_{A(j).i}[|P_{A(j).i}|-1-d]$\;
+			$[A(j).l,A(j).u)\gets${\sc InsertAux}$(B,A(j).l,A(j).u,c,A(j).c,{\it is\_RCLO})$\;
+		}
+		\emph{Remove $A(j)$ if $A(j).c=\$$}\;
+		$d\gets d+1$\;
+	}
+}
+\caption{Insert multiple strings}
+\end{algorithm}
+
+\end{document}
