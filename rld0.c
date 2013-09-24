@@ -445,3 +445,21 @@ void rld_rank2a(const rld_t *e, uint64_t k, uint64_t l, uint64_t *ok, uint64_t *
 		rld_rank1a(e, l, ol);
 	}
 }
+
+int rld_extend(const rld_t *e, const rldintv_t *ik, rldintv_t ok[6], int is_back)
+{ // TODO: this can be accelerated a little by using rld_rank1a() when ik.x[2]==1
+	uint64_t tk[6], tl[6];
+	int i;
+	rld_rank2a(e, ik->x[!is_back], ik->x[!is_back] + ik->x[2], tk, tl);
+	for (i = 0; i < 6; ++i) {
+		ok[i].x[!is_back] = e->cnt[i] + tk[i];
+		ok[i].x[2] = (tl[i] -= tk[i]);
+	}
+	ok[0].x[is_back] = ik->x[is_back];
+	ok[4].x[is_back] = ok[0].x[is_back] + tl[0];
+	ok[3].x[is_back] = ok[4].x[is_back] + tl[4];
+	ok[2].x[is_back] = ok[3].x[is_back] + tl[3];
+	ok[1].x[is_back] = ok[2].x[is_back] + tl[2];
+	ok[5].x[is_back] = ok[1].x[is_back] + tl[1];
+	return 0;
+}

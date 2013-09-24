@@ -40,6 +40,11 @@ typedef struct __rld_t {
 	uint64_t *mem; // only used for memory mapped file
 } rld_t;
 
+typedef struct {
+	uint64_t x[3]; // 0: start of the interval, backward; 1: forward; 2: size of the interval
+	uint64_t info;
+} rldintv_t;
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -58,6 +63,8 @@ extern "C" {
 	int rld_rank1a(const rld_t *e, uint64_t k, uint64_t *ok);
 	void rld_rank21(const rld_t *e, uint64_t k, uint64_t l, int c, uint64_t *ok, uint64_t *ol);
 	void rld_rank2a(const rld_t *e, uint64_t k, uint64_t l, uint64_t *ok, uint64_t *ol);
+
+	int rld_extend(const rld_t *e, const rldintv_t *ik, rldintv_t ok[6], int is_back);
 
 #ifdef __cplusplus
 }
