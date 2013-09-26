@@ -38,21 +38,21 @@ rank}(c,k;B)=|\{i<k:B[i]=c\}|$ gives the number of symbols $c$ before the
 position $k$ in $B$, and ${\rm insert}(c,k;B)$ insert symbol $c$ after $k$
 symbols in $B$ with all the symbols after position $k$ shifted to
 make room for $c$. These two operations can be implemented either by encoding
-$B$ as a dynamic string with the rope data structure, which is essentially a
-tree, or by recoding $B$ after each batch of insertions. RopeBWT2 takes the
+$B$ as a dynamic string with the rope data structure, which is usually based on
+a tree, or by recoding $B$ after each batch of insertions. RopeBWT2 takes the
 former approach.
 
 Algorithm 1 describes how to insert a string to an existing index in the input
-order. It is essentially the same as the algorithm used by dynamic FM-index.
-Algorithm 2 shows the method for inserting one string in the reverse
-lexicographical order (RLO) or in the reverse-complement lexicographical order
-(RCLO). Note that if we change line 1 to ``$u\gets|\{i:B[i]=\$\}|; l\gets u$'',
-this algorithm will be turned into Algorithm 1. The first two algorithms insert
-one string at a time. Algorithm 3 inserts multiple strings at the same time.
-The function supports both the input order and RLO/RCLO. The input-order
-version of this algorithm is essentially BCR. Inserting multiple strings helps
-cache locality and opens the possibility to the parallelization of the loop at
-line 1, both of which lead to a faster implementation for many short strings.
+order. It is the same as the algorithm used by dynamic FM-index.  Algorithm 2
+shows the method for inserting one string in the reverse lexicographical order
+(RLO) or in the reverse-complement lexicographical order (RCLO). Note that if
+we change line 1 to ``$u\gets|\{i:B[i]=\$\}|; l\gets u$'', this algorithm will
+be turned into Algorithm 1. The first two algorithms insert one string at a
+time. Algorithm 3 inserts multiple strings at the same time.  The function
+supports both the input order and RLO/RCLO. The input-order version of this
+algorithm is essentially BCR. Inserting multiple strings helps cache locality
+and opens the possibility to the parallelization of the loop at line 1, both of
+which lead to a faster implementation for many short strings.
 
 \begin{algorithm}[ht]
 \DontPrintSemicolon
