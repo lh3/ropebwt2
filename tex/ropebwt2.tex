@@ -32,7 +32,29 @@ being the array of accumulative counts. By the definition of suffix array and
 BWT, $B_a$ consists of all the symbols with their next symbol in $T$ being
 $a$.
 
-\begin{algorithm}[h]
+Before we describe the algorithm for constructing BWT, we need two string
+operations: ${\rm rank}(c,k;B)$ and ${\rm insert}(c,k;B)$, where ${\rm
+rank}(c,k;B)=|\{i<k:B[i]=c\}|$ gives the number of symbols $c$ before the
+position $k$ in $B$, and ${\rm insert}(c,k;B)$ insert symbol $c$ after $k$
+symbols in $B$ with all the symbols after position $k$ shifted to
+make room for $c$. These two operations can be implemented either by encoding
+$B$ as a dynamic string with the rope data structure, which is essentially a
+tree, or by recoding $B$ after each batch of insertions. RopeBWT2 takes the
+former approach.
+
+Algorithm 1 describes how to insert a string to an existing index in the input
+order. It is essentially the same as the algorithm used by dynamic FM-index.
+Algorithm 2 shows the method for inserting one string in the reverse
+lexicographical order (RLO) or in the reverse-complement lexicographical order
+(RCLO). Note that if we change line 1 to ``$u\gets|\{i:B[i]=\$\}|; l\gets u$'',
+this algorithm will be turned into Algorithm 1. The first two algorithms insert
+one string at a time. Algorithm 3 inserts multiple strings at the same time.
+The function supports both the input order and RLO/RCLO. The input-order
+version of this algorithm is essentially BCR. Inserting multiple strings helps
+cache locality and opens the possibility to the parallelization of the loop at
+line 1, both of which lead to a faster implementation for many short strings.
+
+\begin{algorithm}[ht]
 \DontPrintSemicolon
 \footnotesize
 \KwIn{Existing BWT $B$ for text $T$ and a string $P$}
@@ -43,7 +65,7 @@ $a$.
 	$k\gets|\{i:B[i]=\$\}|$\;
 	$c\gets\$$\;
 	\For{$i\gets|P|-1$ \KwTo $-1$} {
-		\emph{Insert $P[i]$ after $k$ symbols in $B_c$}\;
+		${\rm insert}(P[i],k;B_c)$\;
 		$k\gets {\rm rank}(P[i],k;B_c)+|\{a<c,j:B_a[j]=P[i]\}|$\;
 		$c\gets P[i]$
 	}
@@ -60,7 +82,7 @@ $a$.
 \BlankLine
 \textbf{Function} {\sc InsertRLO1}$(B,P,{\it is\_RCLO})$
 \Begin {
-	$[l,u)\gets \big[0,|\{i:B[i]=\$\}|\big)$\;
+	\nl$[l,u)\gets \big[0,|\{i:B[i]=\$\}|\big)$\;
 	$c\gets \$$\;
 	\For{$i\gets|P|-1$ \KwTo $-1$} {
 		$[l,u)\gets${\sc InsertAux}$(B,l,u,c,P[i],{\it is\_RCLO})$\;
@@ -80,7 +102,7 @@ $a$.
 			$k\gets k+\big[{\rm rank}(a,u;B_c)-{\rm rank}(a,l;B_c)\big]$\;
 		}
 	}
-	\emph{Insert $c'$ after $k$ symbols in $B_c$}\;
+	${\rm insert}(c',k;B_c)$\;
 	$m\gets|\{a<c,j:B_a[j]=c'\}|$\;
 	{\bf return} $\big[{\rm rank}(c',l;B_c)+m,{\rm rank}(c',u;B_c)+m\big)$\;
 }
@@ -106,7 +128,7 @@ $a$.
 	$d\gets 0$\;
 	\While{$|A|\not=0$} {
 		\emph{Stable sort array $A$ by $A(\cdot).c$}\;
-		\For{$0\le j<|A|$} {
+		\nl\For{$0\le j<|A|$} {
 			$c\gets A(j).c$\;
 			$A(j).c\gets P_{A(j).i}[|P_{A(j).i}|-1-d]$\;
 			$[A(j).l,A(j).u)\gets${\sc InsertAux}$(B,A(j).l,A(j).u,c,A(j).c,{\it is\_RCLO})$\;
