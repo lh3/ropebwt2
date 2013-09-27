@@ -90,12 +90,12 @@ int main(int argc, char *argv[])
 	gzFile fp;
 	kseq_t *ks;
 	int64_t m = 0;
-	int c, i, block_len = ROPE_DEF_BLOCK_LEN, max_nodes = ROPE_DEF_MAX_NODES, from_stdin = 0, verbose = 3, so = MR_SO_IO;
+	int c, i, block_len = ROPE_DEF_BLOCK_LEN, max_nodes = ROPE_DEF_MAX_NODES, from_stdin = 0, verbose = 3, so = MR_SO_IO, min_q = 0;
 	int flag = FLAG_FOR | FLAG_REV;
 	kstring_t buf = { 0, 0, 0 };
 	double ct, rt;
 
-	while ((c = getopt(argc, argv, "LTFRCtrbdsl:n:m:v:o:i:")) >= 0) {
+	while ((c = getopt(argc, argv, "LTFRCtrbdsl:n:m:v:o:i:q:")) >= 0) {
 		if (c == 'o') freopen(optarg, "w", stdout);
 		else if (c == 'F') flag &= ~FLAG_FOR;
 		else if (c == 'R') flag &= ~FLAG_REV;
@@ -110,6 +110,7 @@ int main(int argc, char *argv[])
 		else if (c == 'l') block_len = atoi(optarg);
 		else if (c == 'n') max_nodes= atoi(optarg);
 		else if (c == 'v') verbose = atoi(optarg);
+		else if (c == 'q') min_q = atoi(optarg);
 		else if (c == 'i') {
 			FILE *fp;
 			if ((fp = fopen(optarg, "rb")) == 0) {
@@ -143,7 +144,8 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "         -L         input in the one-sequence-per-line format\n");
 		fprintf(stderr, "         -F         skip forward strand\n");
 		fprintf(stderr, "         -R         skip reverse strand\n");
-		fprintf(stderr, "         -C         cut one base if forward==reverse\n\n");
+		fprintf(stderr, "         -C         cut one base if forward==reverse\n");
+		fprintf(stderr, "         -q INT     hard mask bases with QUAL<INT [0]\n\n");
 		fprintf(stderr, "         -o FILE    write output to FILE [stdout]\n");
 		fprintf(stderr, "         -b         dump the index in the binary FMR format\n");
 		fprintf(stderr, "         -d         dump the index in fermi's FMD format\n");
@@ -162,11 +164,15 @@ int main(int argc, char *argv[])
 		if (flag & FLAG_LINE) { // read a line
 			int dret;
 			if (ks_getuntil(ks->f, KS_SEP_LINE, &ks->seq, &dret) < 0) break;
+			ks->qual.l = 0;
 		} else if (kseq_read(ks) < 0) break; // read fasta/fastq
 		l = ks->seq.l;
 		s = (uint8_t*)ks->seq.s;
 		for (i = 0; i < l; ++i) // change encoding
 			s[i] = s[i] < 128? seq_nt6_table[s[i]] : 5;
+		if (ks->qual.l && min_q > 0) // then hard mask the sequence
+			for (i = 0; i < l; ++i)
+				s[i] = ks->qual.s[i] - 33 >= min_q? s[i] : 5;
 		for (i = 0; i < l>>1; ++i) { // reverse
 			int tmp = s[l-1-i];
 			s[l-1-i] = s[i]; s[i] = tmp;
