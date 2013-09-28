@@ -120,9 +120,11 @@ which lead to a faster implementation for many short strings.
 	\For{$0\le j<|\{P_j\}|$} {
 		$A(j).i\gets j$\;
 		$A(j).c\gets \$$\;
-		$[A(j).l,A(j).u)\gets [0,|\{i:B[i]=\$\}|)$\;
-		\If{is\_sorted is {\bf false}} {
-			$A(j).l\gets A(j).u$
+		\If{is\_sorted is {\bf true}} {
+			$[A(j).l,A(j).u)\gets [0,|\{i:B[i]=\$\}|)$\;
+		} \Else {
+			$A(j).l\gets |\{i:B[i]=\$\}|+j$\;
+			$A(j).u\gets A(j).l$
 		}
 	}
 	$d\gets 0$\;
