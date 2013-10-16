@@ -1,4 +1,5 @@
 #include <zlib.h>
+#include <ctype.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -164,6 +165,9 @@ int main(int argc, char *argv[])
 		if (flag & FLAG_LINE) { // read a line
 			int dret;
 			if (ks_getuntil(ks->f, KS_SEP_LINE, &ks->seq, &dret) < 0) break;
+			for (i = 0; i < ks->seq.l; ++i)
+				if (!isalpha(ks->seq.s[i])) break;
+			ks->seq.l = i;
 			ks->qual.l = 0;
 		} else if (kseq_read(ks) < 0) break; // read fasta/fastq
 		l = ks->seq.l;
