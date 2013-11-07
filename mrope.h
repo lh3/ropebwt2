@@ -91,4 +91,14 @@ static inline void mr_get_ac(const mrope_t *mr, int64_t ac[6])
 	for (a = 1, ac[0] = 0; a < 6; ++a) ac[a] = ac[a-1] + c[a-1];
 }
 
+static inline int64_t mr_get_tot(const mrope_t *mr)
+{
+	int a, b;
+	int64_t tot = 0;
+	for (a = 0; a < 6; ++a)
+		for (b = 0; b < 6; ++b)
+			tot += mr->r[a]->c[b];
+	return tot;
+}
+
 #endif

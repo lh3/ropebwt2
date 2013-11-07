@@ -25,7 +25,7 @@ typedef struct __rld_t {
 	int8_t abits; // bits required to store a symbol
 	int8_t sbits; // bits per small block
 	int8_t ibits; // modified during indexing; here for a better alignment
-	int8_t offset0[2]; // 0 for 16-bit blocks; 1 for 32-bit blocks
+	int8_t offset0[3]; // 0 for 16-bit blocks; 1 for 32-bit blocks; 2 for 64-bit blocks
 	int ssize; // ssize = 1<<sbits
 	// modified during encoding
 	int n; // number of blocks (unchanged in decoding)
@@ -74,8 +74,31 @@ extern "C" {
 #define rld_seek_blk(e, k) ((e)->z[(k)>>RLD_LBITS] + ((k)&RLD_LMASK))
 #define rld_get_stail(e, itr) ((itr)->shead + (e)->ssize - ((itr)->shead + (e)->ssize - *(itr)->i == RLD_LSIZE? 2 : 1))
 
-#define rld_size_bit(x) ((uint32_t)(x)>>31) // FIXME: NOT WORKING ON BIG-ENDIAN MACHINES!!!!!!!!!!
+#define rld_block_type(x) ((uint64_t)(x)>>62)
 
+#if defined(_DNA_ONLY)
+static inline int64_t rld_dec0(const rld_t *e, rlditr_t *itr, int *c)
+{
+	uint64_t x = itr->r == 64? itr->p[0] : itr->p[0] << (64 - itr->r) | itr->p[1] >> itr->r;
+	if (x>>63 == 0) {
+		int64_t y;
+		int l, w = 0x333333335555779bll>>(x>>59<<2)&0xf;
+		l = (x >> (64 - w)) - 1;
+		y = x << w >> (64 - l) | 1u << l;
+		w += l;
+		*c = x << w >> 61;
+		w += 3;
+		itr->r -= w;
+		if (itr->r <= 0) ++itr->p, itr->r += 64;
+		return y;
+	} else {
+		*c = x << 1 >> 61;
+		itr->r -= 4;
+		if (itr->r <= 0) ++itr->p, itr->r += 64;
+		return 1;
+	}
+}
+#else
 static inline int64_t rld_dec0(const rld_t *e, rlditr_t *itr, int *c)
 {
 	int w;
@@ -94,6 +117,7 @@ static inline int64_t rld_dec0(const rld_t *e, rlditr_t *itr, int *c)
 	else ++itr->p, itr->r = 64 + itr->r - w;
 	return y;
 }
+#endif
 
 static inline int64_t rld_dec(const rld_t *e, rlditr_t *itr, int *_c, int is_free)
 {
@@ -107,7 +131,7 @@ static inline int64_t rld_dec(const rld_t *e, rlditr_t *itr, int *_c, int is_fre
 			itr->shead = *++itr->i;
 		} else itr->shead += e->ssize;
 		if (itr->shead == rld_seek_blk(e, last)) return -1;
-		itr->p = itr->shead + e->offset0[rld_size_bit(*itr->shead)];
+		itr->p = itr->shead + e->offset0[rld_block_type(*itr->shead)];
 		itr->q = (uint8_t*)itr->p;
 		itr->stail = rld_get_stail(e, itr);
 		itr->r = 64;

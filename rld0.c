@@ -65,6 +65,7 @@ rld_t *rld_init(int asize, int bbits)
 	e->asize1 = asize + 1;
 	e->offset0[0] = (e->asize1*16+63)/64;
 	e->offset0[1] = (e->asize1*32+63)/64;
+	e->offset0[2] = e->asize1;
 	return e;
 }
 
@@ -87,7 +88,7 @@ void rld_itr_init(const rld_t *e, rlditr_t *itr, uint64_t k)
 	itr->i = e->z + (k >> RLD_LBITS);
 	itr->shead = *itr->i + k%RLD_LSIZE;
 	itr->stail = rld_get_stail(e, itr);
-	itr->p = itr->shead + e->offset0[rld_size_bit(*itr->shead)];
+	itr->p = itr->shead + e->offset0[rld_block_type(*itr->shead)];
 	itr->q = (uint8_t*)itr->p;
 	itr->r = 64;
 	itr->c = -1;
@@ -100,23 +101,28 @@ void rld_itr_init(const rld_t *e, rlditr_t *itr, uint64_t k)
 
 static inline void enc_next_block(rld_t *e, rlditr_t *itr)
 {
-	int i;
+	int i, type;
 	if (itr->stail + 2 - *itr->i == RLD_LSIZE) {
 		++e->n;
 		e->z = realloc(e->z, e->n * sizeof(void*));
 		itr->i = e->z + e->n - 1;
 		itr->shead = *itr->i = xcalloc(RLD_LSIZE, 8);
 	} else itr->shead += e->ssize;
-	if (e->cnt[0] - e->mcnt[0] >= 0x8000) {
-		uint32_t *p = (uint32_t*)itr->shead;
-		for (i = 0; i <= e->asize; ++i) p[i] = e->cnt[i] - e->mcnt[i];
-		*p |= 1u<<31;
-		itr->p = itr->shead + e->offset0[1];
-	} else {
+	if (e->cnt[0] - e->mcnt[0] < 0x4000) {
 		uint16_t *p = (uint16_t*)itr->shead;
 		for (i = 0; i <= e->asize; ++i) p[i] = e->cnt[i] - e->mcnt[i];
-		itr->p = itr->shead + e->offset0[0];
+		type = 0;
+	} else if (e->cnt[0] - e->mcnt[0] < 0x40000000) {
+		uint32_t *p = (uint32_t*)itr->shead;
+		for (i = 0; i <= e->asize; ++i) p[i] = e->cnt[i] - e->mcnt[i];
+		type = 1;
+	} else {
+		uint64_t *p = (uint64_t*)itr->shead;
+		for (i = 0; i <= e->asize; ++i) p[i] = e->cnt[i] - e->mcnt[i];
+		type = 2;
 	}
+	*itr->shead |= (uint64_t)type<<62;
+	itr->p = itr->shead + e->offset0[type];
 	itr->stail = rld_get_stail(e, itr);
 	itr->q = (uint8_t*)itr->p;
 	itr->r = 64;
@@ -164,11 +170,15 @@ void rld_rank_index(rld_t *e)
 	for (j = 0; j < e->asize; ++j) cnt[j] = 0;
 	for (i = e->ssize, k = 1; i <= last; i += e->ssize) {
 		uint64_t sum, *p = rld_seek_blk(e, i);
-		if (rld_size_bit(*p)) { // 32-bit count
-			uint32_t *q = (uint32_t*)p;
-			for (j = 1; j <= e->asize; ++j) cnt[j-1] += q[j];
-		} else { // 16-bit count
+		int type = rld_block_type(*p);
+		if (type == 0) {
 			uint16_t *q = (uint16_t*)p;
+			for (j = 1; j <= e->asize; ++j) cnt[j-1] += q[j];
+		} else if (type == 1) {
+			uint32_t *q = (uint32_t*)p;
+			for (j = 1; j <= e->asize; ++j) cnt[j-1] += q[j] & 0x3fffffff;
+		} else {
+			uint64_t *q = (uint64_t*)p;
 			for (j = 1; j <= e->asize; ++j) cnt[j-1] += q[j];
 		}
 		for (j = 0, sum = 0; j < e->asize; ++j) sum += cnt[j];
@@ -214,7 +224,7 @@ int rld_dump(const rld_t *e, const char *fn)
 	fp = strcmp(fn, "-")? fopen(fn, "wb") : fdopen(fileno(stdout), "wb");
 	if (fp == 0) return -1;
 	a = e->asize<<16 | e->sbits;
-	fwrite("RLD\2", 1, 4, fp); // write magic
+	fwrite("RLD\3", 1, 4, fp); // write magic
 	fwrite(&a, 4, 1, fp); // write sbits and asize
 	fwrite(&k, 8, 1, fp); // preserve 8 bytes for future uses
 	fwrite(&e->n_bytes, 8, 1, fp); // n_bytes can always be divided by 8
@@ -239,7 +249,7 @@ static rld_t *rld_restore_header(const char *fn, FILE **_fp)
 	if (strcmp(fn, "-") == 0) *_fp = fp = stdin;
 	else if ((*_fp = fp = fopen(fn, "rb")) == 0) return 0;
 	fread(magic, 1, 4, fp);
-	if (strncmp(magic, "RLD\2", 4)) return 0;
+	if (strncmp(magic, "RLD\3", 4)) return 0;
 	fread(&x, 4, 1, fp);
 	e = rld_init(x>>16, x&0xffff);
 	fread(a, 8, 3, fp);
@@ -323,55 +333,36 @@ static inline uint64_t rld_locate_blk(const rld_t *e, rlditr_t *itr, uint64_t k,
 	q = itr->p = *itr->i + (*z&RLD_LMASK);
 	for (j = 1, *sum = 0; j < e->asize1; ++j) *sum += (cnt[j-1] = z[j]);
 	while (1) { // seek to the small block
+		int type;
 		q += e->ssize;
 		if (q - *itr->i == RLD_LSIZE) q = *++itr->i;
-		c = rld_size_bit(*q)? (uint32_t)(*q)&0x7fffffff : *(uint16_t*)q;
+		type = rld_block_type(*q);
+		c = type == 2? *q&0x3fffffffffffffffULL : type == 1? *(uint32_t*)q : *(uint16_t*)q;
 		if (*sum + c > k) break;
-		if (rld_size_bit(*q)) {
-			uint32_t *p = (uint32_t*)q + 1;
-			for (j = 0; j < e->asize; ++j) cnt[j] += p[j];
-		} else {
+		if (type == 0) {
 			uint16_t *p = (uint16_t*)q + 1;
 #ifdef _DNA_ONLY
 			cnt[0] += p[0]; cnt[1] += p[1]; cnt[2] += p[2]; cnt[3] += p[3]; cnt[4] += p[4]; cnt[5] += p[5];
 #else
 			for (j = 0; j < e->asize; ++j) cnt[j] += p[j];
 #endif
+		} else if (type == 1) {
+			uint32_t *p = (uint32_t*)q + 1;
+			for (j = 0; j < e->asize; ++j) cnt[j] += p[j] & 0x3fffffff;
+		} else {
+			uint64_t *p = (uint64_t*)q + 1;
+			for (j = 0; j < e->asize; ++j) cnt[j] += p[j];
 		}
 		*sum += c;
 		itr->p = q;
 	}
 	itr->shead = itr->p;
 	itr->stail = rld_get_stail(e, itr);
-	itr->p += e->offset0[rld_size_bit(*itr->shead)];
+	itr->p += e->offset0[rld_block_type(*itr->shead)];
 	itr->q = (uint8_t*)itr->p;
 	itr->r = 64;
 	return c + *sum;
 }
-
-#if defined(_DNA_ONLY)
-static inline int64_t rld_dec0_dna(const rld_t *e, rlditr_t *itr, int *c)
-{
-	uint64_t x = itr->r == 64? itr->p[0] : itr->p[0] << (64 - itr->r) | itr->p[1] >> itr->r;
-	if (x>>63 == 0) {
-		int64_t y;
-		int l, w = 0x333333335555779bll>>(x>>59<<2)&0xf;
-		l = (x >> (64 - w)) - 1;
-		y = x << w >> (64 - l) | 1u << l;
-		w += l;
-		*c = x << w >> 61;
-		w += 3;
-		itr->r -= w;
-		if (itr->r <= 0) ++itr->p, itr->r += 64;
-		return y;
-	} else {
-		*c = x << 1 >> 61;
-		itr->r -= 4;
-		if (itr->r <= 0) ++itr->p, itr->r += 64;
-		return 1;
-	}
-}
-#endif
 
 void rld_rank21(const rld_t *e, uint64_t k, uint64_t l, int c, uint64_t *ok, uint64_t *ol) // FIXME: can be faster
 {
@@ -390,11 +381,7 @@ int rld_rank1a(const rld_t *e, uint64_t k, uint64_t *ok)
 	}
 	rld_locate_blk(e, &itr, k-1, ok, &z);
 	while (1) {
-#if defined(_DNA_ONLY)
-		l = rld_dec0_dna(e, &itr, &a);
-#else
 		l = rld_dec0(e, &itr, &a);
-#endif
 		if (z + l >= k) break;
 		z += l; ok[a] += l;
 	}
