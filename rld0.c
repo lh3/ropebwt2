@@ -325,6 +325,30 @@ rld_t *rld_restore_mmap(const char *fn)
  * Computing rank *
  ******************/
 
+#ifdef _DNA_ONLY
+static inline int64_t rld_dec0_fast_dna(const rld_t *e, rlditr_t *itr, int *c)
+{ // This is NOT a replacement of rld_dec0(). It does not do boundary check.
+	uint64_t x = itr->r == 64? itr->p[0] : itr->p[0] << (64 - itr->r) | itr->p[1] >> itr->r;
+	if (x>>63 == 0) {
+		int64_t y;
+		int l, w = 0x333333335555779bll>>(x>>59<<2)&0xf;
+		l = (x >> (64 - w)) - 1;
+		y = x << w >> (64 - l) | 1u << l;
+		w += l;
+		*c = x << w >> 61;
+		w += 3;
+		itr->r -= w;
+		if (itr->r <= 0) ++itr->p, itr->r += 64;
+		return y;
+	} else {
+		*c = x << 1 >> 61;
+		itr->r -= 4;
+		if (itr->r <= 0) ++itr->p, itr->r += 64;
+		return 1;
+	}
+}
+#endif
+
 static inline uint64_t rld_locate_blk(const rld_t *e, rlditr_t *itr, uint64_t k, uint64_t *cnt, uint64_t *sum)
 {
 	int j;
@@ -381,7 +405,11 @@ int rld_rank1a(const rld_t *e, uint64_t k, uint64_t *ok)
 	}
 	rld_locate_blk(e, &itr, k-1, ok, &z);
 	while (1) {
+#ifdef _DNA_ONLY
+		l = rld_dec0_fast_dna(e, &itr, &a);
+#else
 		l = rld_dec0(e, &itr, &a);
+#endif
 		if (z + l >= k) break;
 		z += l; ok[a] += l;
 	}
@@ -410,7 +438,11 @@ void rld_rank2a(const rld_t *e, uint64_t k, uint64_t l, uint64_t *ok, uint64_t *
 	}
 	y = rld_locate_blk(e, &itr, k-1, ok, &z); // locate the block bracketing k
 	while (1) { // compute ok[]
+#ifdef _DNA_ONLY
+		len = rld_dec0_fast_dna(e, &itr, &a);
+#else
 		len = rld_dec0(e, &itr, &a);
+#endif
 		if (z + len >= k) break;
 		z += len; ok[a] += len;
 	}
