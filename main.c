@@ -11,7 +11,7 @@
 #include "kseq.h"
 KSEQ_INIT(gzFile, gzread)
 
-#define ROPEBWT2_VERSION "r131"
+#define ROPEBWT2_VERSION "r132"
 
 static unsigned char seq_nt6_table[128] = {
     0, 5, 5, 5,  5, 5, 5, 5,  5, 5, 5, 5,  5, 5, 5, 5,
@@ -32,6 +32,7 @@ static unsigned char seq_nt6_table[128] = {
 #define FLAG_THR 0x40
 #define FLAG_LINE 0x100
 #define FLAG_RLD 0x200
+#define FLAG_NON 0x400
 
 static inline int kputsn(const char *p, int l, kstring_t *s)
 {
@@ -87,7 +88,7 @@ double realtime()
 	return tp.tv_sec + tp.tv_usec * 1e-6;
 }
 
-int main(int argc, char *argv[])
+int main_ropebwt2(int argc, char *argv[])
 {
 	mrope_t *mr = 0;
 	gzFile fp;
@@ -98,7 +99,7 @@ int main(int argc, char *argv[])
 	kstring_t buf = { 0, 0, 0 };
 	double ct, rt;
 
-	while ((c = getopt(argc, argv, "LTFRCtrbdsl:n:m:v:o:i:q:")) >= 0) {
+	while ((c = getopt(argc, argv, "NLTFRCtrbdsl:n:m:v:o:i:q:")) >= 0) {
 		if (c == 'o') freopen(optarg, "w", stdout);
 		else if (c == 'F') flag &= ~FLAG_FOR;
 		else if (c == 'R') flag &= ~FLAG_REV;
@@ -108,6 +109,7 @@ int main(int argc, char *argv[])
 		else if (c == 't') flag |= FLAG_THR;
 		else if (c == 'L') flag |= FLAG_LINE;
 		else if (c == 'd') flag |= FLAG_RLD;
+		else if (c == 'N') flag |= FLAG_NON;
 		else if (c == 's') so = so != MR_SO_RCLO? MR_SO_RLO : MR_SO_RCLO;
 		else if (c == 'r') so = MR_SO_RCLO;
 		else if (c == 'l') block_len = atoi(optarg);
@@ -136,7 +138,7 @@ int main(int argc, char *argv[])
 	from_stdin = !isatty(fileno(stdin));
 	if (optind == argc && !from_stdin) {
 		fprintf(stderr, "\n");
-		fprintf(stderr, "Usage:   ropebwt2 [options] <in.fq.gz>\n\n");
+		fprintf(stderr, "Usage:   ropebwt2-%s [options] <in.fq.gz>\n\n", ROPEBWT2_VERSION);
 		fprintf(stderr, "Options: -l INT     leaf block length [%d]\n", block_len);
 		fprintf(stderr, "         -n INT     max number children per internal node (bpr only) [%d]\n", max_nodes);
 		fprintf(stderr, "         -s         build BWT in the reverse lexicographical order (RLO)\n");
@@ -147,6 +149,7 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "         -L         input in the one-sequence-per-line format\n");
 		fprintf(stderr, "         -F         skip forward strand\n");
 		fprintf(stderr, "         -R         skip reverse strand\n");
+		fprintf(stderr, "         -N         skip sequences containing ambiguous bases\n");
 		fprintf(stderr, "         -C         cut one base if forward==reverse\n");
 		fprintf(stderr, "         -q INT     hard mask bases with QUAL<INT [0]\n\n");
 		fprintf(stderr, "         -o FILE    write output to FILE [stdout]\n");
@@ -179,6 +182,11 @@ int main(int argc, char *argv[])
 		if (ks->qual.l && min_q > 0) // then hard mask the sequence
 			for (i = 0; i < l; ++i)
 				s[i] = ks->qual.s[i] - 33 >= min_q? s[i] : 5;
+		if (flag & FLAG_NON) {
+			for (i = 0; i < l; ++i)
+				if (s[i] == 5) break;
+			if (i < l) continue;
+		}
 		for (i = 0; i < l>>1; ++i) { // reverse
 			int tmp = s[l-1-i];
 			s[l-1-i] = s[i]; s[i] = tmp;
@@ -267,4 +275,20 @@ int main(int argc, char *argv[])
 	}
 	mr_destroy(mr);
 	return 0;
+}
+
+int main(int argc, char *argv[])
+{
+	int ret, i;
+	double t_start;
+	t_start = realtime();
+	ret = main_ropebwt2(argc, argv);
+	if (ret == 0) {
+		fprintf(stderr, "[M::%s] Version: %s\n", __func__, ROPEBWT2_VERSION);
+		fprintf(stderr, "[M::%s] CMD:", __func__);
+		for (i = 0; i < argc; ++i)
+			fprintf(stderr, " %s", argv[i]);
+		fprintf(stderr, "\n[M::%s] Real time: %.3f sec; CPU: %.3f sec\n", __func__, realtime() - t_start, cputime());
+	}
+	return ret;
 }
