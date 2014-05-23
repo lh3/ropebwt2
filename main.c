@@ -11,7 +11,7 @@
 #include "kseq.h"
 KSEQ_INIT(gzFile, gzread)
 
-#define ROPEBWT2_VERSION "r144"
+#define ROPEBWT2_VERSION "r145"
 
 static unsigned char seq_nt6_table[128] = {
     0, 5, 5, 5,  5, 5, 5, 5,  5, 5, 5, 5,  5, 5, 5, 5,
@@ -93,7 +93,7 @@ int main_ropebwt2(int argc, char *argv[])
 	mrope_t *mr = 0;
 	gzFile fp;
 	kseq_t *ks;
-	int64_t m = (int64_t)(.97 * 10 * 1024 * 1024 * 1024) + 1; // default to a little less than 10g
+	int64_t m = 0;
 	int c, i, block_len = ROPE_DEF_BLOCK_LEN, max_nodes = ROPE_DEF_MAX_NODES, from_stdin = 0, verbose = 3, so = MR_SO_IO, min_q = 0;
 	int flag = FLAG_FOR | FLAG_REV | FLAG_THR;
 	kstring_t buf = { 0, 0, 0 };
@@ -144,7 +144,7 @@ int main_ropebwt2(int argc, char *argv[])
 		fprintf(stderr, "         -n INT     max number children per internal node [%d]\n", max_nodes);
 		fprintf(stderr, "         -s         build BWT in the reverse lexicographical order (RLO)\n");
 		fprintf(stderr, "         -r         build BWT in RCLO, overriding -s \n");
-		fprintf(stderr, "         -m INT     batch size for multi-string indexing; 0 for single-string [10G]\n");
+		fprintf(stderr, "         -m INT     batch size for multi-string indexing; 0 for single-string [0]\n");
 		fprintf(stderr, "         -P         always use a single thread\n\n");
 		fprintf(stderr, "         -i FILE    read existing index in the FMR format from FILE, overriding -s/-r [null]\n");
 		fprintf(stderr, "         -L         input in the one-sequence-per-line format\n");
@@ -157,6 +157,9 @@ int main_ropebwt2(int argc, char *argv[])
 		fprintf(stderr, "         -b         dump the index in the binary FMR format\n");
 		fprintf(stderr, "         -d         dump the index in fermi's FMD format\n");
 		fprintf(stderr, "         -T         output the index in the Newick format (for debugging)\n\n");
+		fprintf(stderr, "Note: To construct the BWT for a well assembled genome, use -m0 (the default). To construct\n");
+		fprintf(stderr, "      for many sequence reads, use -m10g if unsure. Option -m does not change the result,\n");
+		fprintf(stderr, "      but it may have a big impact on the performance and the peak memory.\n\n");
 		return 1;
 	}
 
