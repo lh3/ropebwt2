@@ -11,7 +11,7 @@
 #include "kseq.h"
 KSEQ_INIT(gzFile, gzread)
 
-#define ROPEBWT2_VERSION "r132"
+#define ROPEBWT2_VERSION "r144"
 
 static unsigned char seq_nt6_table[128] = {
     0, 5, 5, 5,  5, 5, 5, 5,  5, 5, 5, 5,  5, 5, 5, 5,
@@ -93,13 +93,13 @@ int main_ropebwt2(int argc, char *argv[])
 	mrope_t *mr = 0;
 	gzFile fp;
 	kseq_t *ks;
-	int64_t m = 0;
+	int64_t m = (int64_t)(.97 * 10 * 1024 * 1024 * 1024) + 1; // default to a little less than 10g
 	int c, i, block_len = ROPE_DEF_BLOCK_LEN, max_nodes = ROPE_DEF_MAX_NODES, from_stdin = 0, verbose = 3, so = MR_SO_IO, min_q = 0;
-	int flag = FLAG_FOR | FLAG_REV;
+	int flag = FLAG_FOR | FLAG_REV | FLAG_THR;
 	kstring_t buf = { 0, 0, 0 };
 	double ct, rt;
 
-	while ((c = getopt(argc, argv, "NLTFRCtrbdsl:n:m:v:o:i:q:")) >= 0) {
+	while ((c = getopt(argc, argv, "PNLTFRCtrbdsl:n:m:v:o:i:q:")) >= 0) {
 		if (c == 'o') freopen(optarg, "w", stdout);
 		else if (c == 'F') flag &= ~FLAG_FOR;
 		else if (c == 'R') flag &= ~FLAG_REV;
@@ -110,6 +110,7 @@ int main_ropebwt2(int argc, char *argv[])
 		else if (c == 'L') flag |= FLAG_LINE;
 		else if (c == 'd') flag |= FLAG_RLD;
 		else if (c == 'N') flag |= FLAG_NON;
+		else if (c == 'P') flag &= ~FLAG_THR;
 		else if (c == 's') so = so != MR_SO_RCLO? MR_SO_RLO : MR_SO_RCLO;
 		else if (c == 'r') so = MR_SO_RCLO;
 		else if (c == 'l') block_len = atoi(optarg);
@@ -140,11 +141,11 @@ int main_ropebwt2(int argc, char *argv[])
 		fprintf(stderr, "\n");
 		fprintf(stderr, "Usage:   ropebwt2-%s [options] <in.fq.gz>\n\n", ROPEBWT2_VERSION);
 		fprintf(stderr, "Options: -l INT     leaf block length [%d]\n", block_len);
-		fprintf(stderr, "         -n INT     max number children per internal node (bpr only) [%d]\n", max_nodes);
+		fprintf(stderr, "         -n INT     max number children per internal node [%d]\n", max_nodes);
 		fprintf(stderr, "         -s         build BWT in the reverse lexicographical order (RLO)\n");
 		fprintf(stderr, "         -r         build BWT in RCLO, overriding -s \n");
-		fprintf(stderr, "         -m INT     batch size for multi-string indexing; 0 for single-string [0]\n");
-		fprintf(stderr, "         -t         use 5 threads, only effective with -m\n\n");
+		fprintf(stderr, "         -m INT     batch size for multi-string indexing; 0 for single-string [10G]\n");
+		fprintf(stderr, "         -P         always use a single thread\n\n");
 		fprintf(stderr, "         -i FILE    read existing index in the FMR format from FILE, overriding -s/-r [null]\n");
 		fprintf(stderr, "         -L         input in the one-sequence-per-line format\n");
 		fprintf(stderr, "         -F         skip forward strand\n");

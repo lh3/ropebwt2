@@ -85,15 +85,14 @@ which lead to a faster implementation for many short strings.
 	\nl$[l,u)\gets \big[0,|\{i:B[i]=\$\}|\big)$\;
 	$c\gets \$$\;
 	\For{$i\gets|P|-1$ \KwTo $-1$} {
-		$[l,u)\gets${\sc InsertAux}$(B,l,u,c,P[i],{\it is\_RCLO})$\;
-		$c\gets P[i]$\;
+		$[l,u)\gets${\sc InsertAux}$(B,P[i],l,u,P[i+1],{\it is\_RCLO})$\;
 	}
 	{\bf return} $B$
 }
-\textbf{Function} {\sc InsertAux}$(B,l,u,c,c',{\it is\_RCLO})$
+\textbf{Function} {\sc InsertAux}$(B,c',l,u,c,{\it is\_RCLO})$
 \Begin {
 	$k\gets l$\;
-	\If{is\_RCLO is {\bf true} {\bf and} $c\not={\rm ``N"}$} {
+	\If{is\_RCLO is {\bf true} {\bf and} $c'\not={\rm ``N"}$} {
 		\For{$a=\$$ {\bf or} $c'<a<{\rm ``N"}$} {
 			$k\gets k+\big[{\rm rank}(a,u;B_c)-{\rm rank}(a,l;B_c)\big]$\;
 		}
@@ -133,7 +132,7 @@ which lead to a faster implementation for many short strings.
 		\nl\For{$0\le j<|A|$} {
 			$c\gets A(j).c$\;
 			$A(j).c\gets P_{A(j).i}[|P_{A(j).i}|-1-d]$\;
-			$[A(j).l,A(j).u)\gets${\sc InsertAux}$(B,A(j).l,A(j).u,c,A(j).c,{\it is\_RCLO})$\;
+			$[A(j).l,A(j).u)\gets${\sc InsertAux}$(B,c,A(j).l,A(j).u,A(j).c,{\it is\_RCLO})$\;
 		}
 		\emph{Remove $A(j)$ if $A(j).c=\$$}\;
 		$d\gets d+1$\;
