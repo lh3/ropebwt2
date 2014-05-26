@@ -145,17 +145,18 @@ over network (details to be added later).
 
 ###Results
 
-|Dataset|w/ rev|prog    |sorted|CPU   |Real  |RSS  |Comment|
-|-------|:-----|:-------|:-----|:-----|:-----|:----|:------|
-|worm   |No    |BCR     |No    |2560s |2147s |1.8G |RLE encoding|
-|worm   |No    |ropebwt1|No    |1196s |529s  |2.2G |Create tmp|
-|worm   |No    |ropebwt2|No    |1611s |647s  |11.8G|-bRm10g|
-|worm   |No    |ropebwt2|Yes   |1268s |506s  |10.5G|-brRm10g|
-|worm   |Yes   |ropebwt2|No    |3566s |1384s |18.0G|-bm10g|
-|worm   |Yes   |ropebwt2|Yes   |3116s |1182s |15.9G|-brm10g|
-|Venter |No    |ropebwt2|Yes   |4.10h |1.47h |22.2G|-brRm10g|
-|Venter |Yes   |ropebwt2|Yes   |8.85h |3.00h |29.4G|-brm10g|
-|NA12878|No    |ropebwt2|Yes   |12.94h|4.96h |34.0G|-brRm10g|
+|Dataset|w/ rev|prog         |sorted|CPU   |Real  |RSS  |Comment|
+|-------|:-----|:------------|:-----|:-----|:-----|:----|:------|
+|worm   |No    |[BCR][bcr]   |No    |2560s |2147s |1.8G |RLE encoding|
+|worm   |No    |[BCRext][bcr]|    | | | ||
+|worm   |No    |[ropebwt][rb]|No    |1196s |529s  |2.2G |Create tmp|
+|worm   |No    |ropebwt2     |No    |1611s |647s  |11.8G|-bRm10g|
+|worm   |No    |ropebwt2     |Yes   |1268s |506s  |10.5G|-brRm10g|
+|worm   |Yes   |ropebwt2     |No    |3566s |1384s |18.0G|-bm10g|
+|worm   |Yes   |ropebwt2     |Yes   |3116s |1182s |15.9G|-brm10g|
+|Venter |No    |ropebwt2     |Yes   |4.10h |1.47h |22.2G|-brRm10g|
+|Venter |Yes   |ropebwt2     |Yes   |8.85h |3.00h |29.4G|-brm10g|
+|NA12878|No    |ropebwt2     |Yes   |12.94h|4.96h |34.0G|-brRm10g|
 
 
 [1]: https://github.com/lh3/ropebwt
@@ -168,3 +169,5 @@ over network (details to be added later).
 
 [ce]: http://www.ncbi.nlm.nih.gov/sra/?term=SRR065390
 [cpu]: http://ark.intel.com/products/75283/Intel-Xeon-Processor-E5-2697-v2-30M-Cache-2_70-GHz
+[bcr]: https://github.com/BEETL/BEETL
+[rb]: https://github.com/lh3/ropebwt
