@@ -137,12 +137,16 @@ mrope_t *mr_restore(FILE *fp)
 {
 	mrope_t *mr;
 	uint8_t magic[4];
+	int64_t tot, c[6];
 	int i;
 	fread(magic, 1, 4, fp);
 	mr = calloc(1, sizeof(mrope_t));
 	mr->so = magic[3];
 	for (i = 0; i < 6; ++i)
 		mr->r[i] = rope_restore(fp);
+	tot = mr_get_c(mr, c);
+	fprintf(stderr, "[M::%s] ($, A, C, G, T, N) = (%ld, %ld, %ld, %ld, %ld, %ld)\n", __func__,
+			(long)c[0], (long)c[1], (long)c[2], (long)c[3], (long)c[4], (long)c[5]);
 	return mr;
 }
 

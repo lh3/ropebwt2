@@ -125,6 +125,36 @@ apparently ten times slower and uses more memory on the index construction.
 
 
 
+##Performance Evaluation
+
+###Data sets
+
+1. [**C. eleganse**] 66,764,080 100bp *C. eleganse* reads from [SRR065390][ce] with pairs
+   containing any ambiguous bases filtered out. The total coverage is about 66X.
+
+2. [**Venter**] 31,861,638 Craig Venter reads totaled in length 27,900,333,064bp.
+
+3. [**NA12878**] 1,206,555,986 101bp human reads for sample NA12878, used in my fermi paper.
+   Pairs containing ambiguous bases are filtered out.
+
+###Hardware and OS
+
+CPU: 48 cores of [Xeon E5-2697 v2 at 2.70GHz][cpu]. RAM: 132GB. OS: Red
+Hat Enterprise Linux 6.
+
+###Results
+
+|Dataset     | revcomp |sorted|CPU    |Real    |RSS   |
+|------------|:--------|:-----|:------|:-------|:-----|
+|C. eleganse |No       |No    |1611s  |647s    |11.8G |
+|C. eleganse |No       |Yes   |1268s  |506s    |10.5G |
+|C. eleganse |Yes      |No    |3566s  |1384s   |18.0G |
+|C. eleganse |Yes      |Yes   |3116s  |1182s   |15.9G |
+|Venter      |No       |Yes   |4.10h  |1.47h   |22.2G |
+|Venter      |Yes      |Yes   |8.85h  |2.04h   |29.4G |
+|NA12878     |No       |Yes   |12.94h |4.96h   |34.0G |
+
+
 [1]: https://github.com/lh3/ropebwt
 [2]: http://dx.doi.org/10.1007/978-3-642-21458-5_20
 [3]: http://dfmi.sourceforge.net/
@@ -132,3 +162,6 @@ apparently ten times slower and uses more memory on the index construction.
 [5]: https://github.com/BEETL/BEETL
 [6]: https://en.wikipedia.org/wiki/Wavelet_Tree
 [7]: https://en.wikipedia.org/wiki/Rope_%28data_structure%29
+
+[ce]: http://www.ncbi.nlm.nih.gov/sra/?term=SRR065390
+[cpu]: http://ark.intel.com/products/75283/Intel-Xeon-Processor-E5-2697-v2-30M-Cache-2_70-GHz

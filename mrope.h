@@ -80,15 +80,26 @@ extern "C" {
 }
 #endif
 
-static inline void mr_get_ac(const mrope_t *mr, int64_t ac[6])
+static inline int64_t mr_get_c(const mrope_t *mr, int64_t c[6])
 {
 	int a, b;
-	int64_t c[6];
+	int64_t tot = 0;
 	for (a = 0; a < 6; ++a) c[a] = 0;
-	for (a = 0; a < 6; ++a)
+	for (a = 0; a < 6; ++a) {
 		for (b = 0; b < 6; ++b)
 			c[b] += mr->r[a]->c[b];
-	for (a = 1, ac[0] = 0; a < 6; ++a) ac[a] = ac[a-1] + c[a-1];
+		tot += c[b];
+	}
+	return tot;
+}
+
+static inline int64_t mr_get_ac(const mrope_t *mr, int64_t ac[7])
+{
+	int a;
+	int64_t c[6], tot;
+	tot = mr_get_c(mr, c);
+	for (a = 1, ac[0] = 0; a <= 6; ++a) ac[a] = ac[a-1] + c[a-1];
+	return tot;
 }
 
 static inline int64_t mr_get_tot(const mrope_t *mr)
