@@ -129,7 +129,7 @@ apparently ten times slower and uses more memory on the index construction.
 
 ###Data sets
 
-1. [**C. eleganse**] 66,764,080 100bp *C. eleganse* reads from [SRR065390][ce] with pairs
+1. [**worm**] 66,764,080 100bp *C. eleganse* reads from [SRR065390][ce] with pairs
    containing any ambiguous bases filtered out. The total coverage is about 66X.
 
 2. [**Venter**] 31,861,638 Craig Venter reads totaled in length 27,900,333,064bp.
@@ -140,19 +140,22 @@ apparently ten times slower and uses more memory on the index construction.
 ###Hardware and OS
 
 CPU: 48 cores of [Xeon E5-2697 v2 at 2.70GHz][cpu]. RAM: 132GB. OS: Red
-Hat Enterprise Linux 6.
+Hat Enterprise Linux 6. File system: supposedly high-performance file system
+over network (details to be added later).
 
 ###Results
 
-|Dataset     | revcomp |sorted|CPU    |Real    |RSS   |
-|------------|:--------|:-----|:------|:-------|:-----|
-|C. eleganse |No       |No    |1611s  |647s    |11.8G |
-|C. eleganse |No       |Yes   |1268s  |506s    |10.5G |
-|C. eleganse |Yes      |No    |3566s  |1384s   |18.0G |
-|C. eleganse |Yes      |Yes   |3116s  |1182s   |15.9G |
-|Venter      |No       |Yes   |4.10h  |1.47h   |22.2G |
-|Venter      |Yes      |Yes   |8.85h  |2.04h   |29.4G |
-|NA12878     |No       |Yes   |12.94h |4.96h   |34.0G |
+|Dataset|w/ rev|prog    |sorted|CPU   |Real  |RSS  |Comment|
+|-------|:-----|:-------|:-----|:-----|:-----|:----|:------|
+|worm   |No    |BCR     |No    |2560s |2147s |1.8G |RLE encoding|
+|worm   |No    |ropebwt1|No    |1196s |529s  |2.2G |Create tmp|
+|worm   |No    |ropebwt2|No    |1611s |647s  |11.8G|-bRm10g|
+|worm   |No    |ropebwt2|Yes   |1268s |506s  |10.5G|-brRm10g|
+|worm   |Yes   |ropebwt2|No    |3566s |1384s |18.0G|-bm10g|
+|worm   |Yes   |ropebwt2|Yes   |3116s |1182s |15.9G|-brm10g|
+|Venter |No    |ropebwt2|Yes   |4.10h |1.47h |22.2G|-brRm10g|
+|Venter |Yes   |ropebwt2|Yes   |8.85h |3.00h |29.4G|-brm10g|
+|NA12878|No    |ropebwt2|Yes   |12.94h|4.96h |34.0G|-brRm10g|
 
 
 [1]: https://github.com/lh3/ropebwt
