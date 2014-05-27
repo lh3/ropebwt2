@@ -142,19 +142,24 @@ apparently ten times slower and uses more memory on the index construction.
 
 ###Hardware and OS
 
-CPU: 48 cores of [Xeon E5-2697 v2 at 2.70GHz][cpu]. RAM: 132GB. OS: Red
-Hat Enterprise Linux 6. File system: supposedly high-performance file system
-over network (details to be added later).
+CPU: 48 cores of [Xeon E5-2697 v2 at 2.70GHz][cpu]. GPU: one [Nvidia Tesla
+K40][gpu]. RAM: 132GB. OS: Red Hat Enterprise Linux 6. CUDA: 5.5. File system:
+supposedly high-performance file system over network (details to be added
+later).
 
 ###Results
 
 |Dataset|w/ rev|Algorithm        |Sorted|CPU   |Real  |RSS  |Comment|
 |-------|:-----|:----------------|:-----|:-----|:-----|:----|:------|
-|worm   |No    |[BEETL-BCR][bcr] |No    |2574s |2092s |1.8G ||
-|worm   |No    |[BEETL-BCRext][bcr]|No  |2839s |5900s |12.6M||
+|worm   |No    |[BEETL-BCR][bcr] |-     |2574s |2092s |1.8G ||
+|worm   |No    |[BEETL-BCRext][bcr]|-   |2839s |5900s |12.6M||
 |worm   |No    |[ropebwt-BCR][rb]|No    |1070s |480s  |2.2G |-bORtf -abcr|
-|worm   |No    |[ropebwt-bpr][rb]|No    |4279s |4296s |2.3G |-bOR|
-|worm   |No    |[ropebwt-rbr][rb]|No    |8895s |8915s |2.3G |-bOR -arbr|
+|worm   |No    |[ropebwt-bpr][rb]|-     |4279s |4296s |2.3G |-bOR|
+|worm   |No    |[ropebwt-rbr][rb]|-     |8895s |8915s |2.3G |-bOR -arbr|
+|worm   |No    |[nvSetBWT][nvb]  |-     |484s  |416s  |10.9G|mem: 2g/4g|
+|worm   |No    |[nvSetBWT][nvb]  |-     |435s  |316s  |12.9G|mem: 4g/4g|
+|worm   |No    |[nvSetBWT][nvb]  |-     |434s  |309s  |24.9G|mem: 16g/4g|
+|worm   |No    |[nvSetBWT][nvb]  |-     |499s  |480s  |21.5G|mem: 16g/2g|
 |worm   |No    |ropebwt2-single  |No    |5105s |5125s |2.5G |-bR|
 |worm   |No    |ropebwt2-m10g    |No    |1611s |647s  |11.8G|-bRm10g|
 |worm   |No    |ropebwt2-m10g    |Yes   |1268s |506s  |10.5G|-brRm10g|
@@ -169,6 +174,10 @@ over network (details to be added later).
   encoding. [BEETL][bcr] automatically chooses the RLE encoding in our
   evaluation. Changing the BEETL encoding may also affect its performance.
 
+* nvSetBWT from NVBio aborted when '-gpu-mem 6144' or higher is specified. It
+  seems that nvSetBWT uses more GPU memory than -gpu-mem according to the
+  nvidia-smi report.
+
 [1]: https://github.com/lh3/ropebwt
 [2]: http://dx.doi.org/10.1007/978-3-642-21458-5_20
 [3]: http://dfmi.sourceforge.net/
@@ -179,6 +188,8 @@ over network (details to be added later).
 
 [ce]: http://www.ncbi.nlm.nih.gov/sra/?term=SRR065390
 [cpu]: http://ark.intel.com/products/75283/Intel-Xeon-Processor-E5-2697-v2-30M-Cache-2_70-GHz
+[gpu]: http://www.nvidia.com/object/tesla-servers.html
 [bcr]: https://github.com/BEETL/BEETL
 [rb]: https://github.com/lh3/ropebwt
 [sga]: https://github.com/jts/sga
+[nvb]: https://github.com/NVlabs/nvbio
