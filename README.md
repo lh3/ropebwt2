@@ -1,11 +1,11 @@
 ##Introduction
 
-RopeBWT2 is an *experimental* tool for constructing the FM-index for a
-collection of DNA sequences. It works by incrementally inserting multiple
-sequences into an existing pseudo-BWT position by position, starting from the
-end of the sequences. This algorithm can be largely considered a mixture of
-[BCR][2] and [dynamic FM-index][3]. Nonetheless, ropeBWT2 is unique in that it
-may *implicitly* sort the input into reverse lexicographical order (RLO) or
+RopeBWT2 is an tool for constructing the FM-index for a collection of DNA
+sequences. It works by incrementally inserting one or multiple sequences into an
+existing pseudo-BWT position by position, starting from the end of the
+sequences. This algorithm can be largely considered a mixture of [BCR][2] and
+[dynamic FM-index][3]. Nonetheless, ropeBWT2 is unique in that it may
+*implicitly* sort the input into reverse lexicographical order (RLO) or
 reverse-complement lexicographical order (RCLO) while building the index.
 Suppose we have file `seq.txt` in the one-sequence-per-line format. RLO can be
 achieved with Unix commands:
@@ -34,9 +34,9 @@ to its index in the input. This array is usually not compressible unless the
 input is sorted.
 
 RopeBWT2 is developed for indexing hundreds of billions of symbols. It has been
-carefully optimized for both speed and memory usage. On an old machine with
-2.3GHz Opteron 8376 CPUs, ropeBWT2 is able to index 2.4 billion 101bp reads in
-30 wall-clock hours with peak memory ~45GB.
+carefully optimized for both speed and memory usage. On a new machine with [Xeon
+E5-2697v2 CPUs at 2.70GHz][cpu], ropeBWT2 is able to the index for 1.2 billion
+101bp reads in five wall-clock hours with 34G peak memory.
 
 
 ##Examples
@@ -53,10 +53,13 @@ carefully optimized for both speed and memory usage. On an old machine with
 3. Construct the BWT for sequences in RLO, processing 4GB symbols at a time
    with multithreading:
 
-        ropebwt2 -brtm4g in.fa > out.fmr
+        ropebwt2 -brm4g in.fa > out.fmr
 
    Note that for sequence reads, processing multiple sequences together is
-   faster due to possible multi-threading and fewer cache misses.
+   faster due to possible multi-threading and fewer cache misses. The peak
+   memory is about *B*+*m*\*(1+48/*l*), where *B* is the size of the final BWT
+   encoded in a B+-tree, *m* is the parameter value of '-m' and *l* is the
+   average read length.
 
 4. Add sequences to an existing index with the sorting order defined by the
    existing index (incremental construction):
@@ -69,18 +72,18 @@ carefully optimized for both speed and memory usage. On an old machine with
 RopeBWT2 keeps the entire BWT in six B+ trees with the *i*-th tree storing the
 substring B[C(i)+1..C(i+1)], where C(i) equals the number of
 symbols lexicographically smaller than *i*. In each B+ tree, an internal node
-keeps the count of symbols in the subtree decending from it; an external node
+keeps the count of symbols in the subtree descending from it; an external node
 keeps a BWT substring in the run-length encoding. The B+ tree achieve a similar
 purpose to the [rope data structure][7], which enables efficient query and
 insertion. RopeBWT2 uses this rope-like data structure to achieve incremental
 construction. This is where word 'rope' in ropeBWT2 comes from.
 
-The original BCR implementation uses static encoding to keep BWT. Although it
-is possible to insert strings to an existing BWT, we have to read through the
-old BWT. Reading the entire BWT may be much slower than the actual insertion.
-With the rope data structure, we can insert one or a few sequences of length
-*m* in O(mlogn) time without reading all the BWT. We can thus achieve
-efficient incremental construction.
+The original BCR implementation uses static encoding to keep BWT. Although it is
+possible to insert strings to an existing BWT, we have to read through the old
+BWT. Reading the entire BWT may be much slower than the actual insertion. With
+the rope data structure, we can insert one or many sequences of length *m* in
+O(mlogn) time without reading all the BWT. We can thus achieve efficient
+incremental construction.
 
 To achieve RLO for one-string insertion, we insert the symbol that is ahead of
 a suffix at the position based on the rank of the suffix computed from backward
@@ -150,6 +153,7 @@ over network (details to be added later).
 |worm   |No    |[BEETL-BCR][bcr] |No    |2574s |2092s |1.8G ||
 |worm   |No    |[BEETL-BCRext][bcr]|No  |2839s |5900s |12.6M||
 |worm   |No    |[ropebwt-BCR][rb]|No    |1196s |529s  |2.2G |Create tmp|
+|worm   |No    |ropebwt2-single  |No    |5105s |5125s |2.5G |-bR|
 |worm   |No    |ropebwt2-m10g    |No    |1611s |647s  |11.8G|-bRm10g|
 |worm   |No    |ropebwt2-m10g    |Yes   |1268s |506s  |10.5G|-brRm10g|
 |worm   |Yes   |ropebwt2-m10g    |No    |3566s |1384s |18.0G|-bm10g|
@@ -157,13 +161,6 @@ over network (details to be added later).
 |Venter |No    |ropebwt2-m10g    |Yes   |4.10h |1.47h |22.2G|-brRm10g|
 |Venter |Yes   |ropebwt2-m10g    |Yes   |8.85h |3.00h |29.4G|-brm10g|
 |NA12878|No    |ropebwt2-m10g    |Yes   |12.94h|4.96h |34.0G|-brRm10g|
-
-* [Ropebwt][rb] comes with three algorithms: a reimplementation of BCR,
-  insertion of single strings to a B+-tree based rope and insertion of single
-  strings to a red-black-tree based rope. The BCR reimplementation is referred
-  to as the 'ropebwt' algorithm in [SGA][sga] and is evaluated here. The second
-  algorithm is the predecessor of the single-string mode of ropebwt2. The third
-  algorithm is the slowest.
 
 * For [ropebwt][rb] and ropebwt2, outputting the BWT to a plain text string
   takes significant time. We let them dump the BWT in their internal binary

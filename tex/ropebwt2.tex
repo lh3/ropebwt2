@@ -80,19 +80,19 @@ which lead to a faster implementation for many short strings.
 \KwIn{Existing BWT $B$ in RLO/RCLO and a string $P$}
 \KwOut{BWT $B$ with $P$ inserted in RLO/RCLO}
 \BlankLine
-\textbf{Function} {\sc InsertRLO1}$(B,P,{\it is\_RCLO})$
+\textbf{Function} {\sc InsertRLO1}$(B,P,{\it is\_comp})$
 \Begin {
 	\nl$[l,u)\gets \big[0,|\{i:B[i]=\$\}|\big)$\;
 	$c\gets \$$\;
 	\For{$i\gets|P|-1$ \KwTo $-1$} {
-		$[l,u)\gets${\sc InsertAux}$(B,P[i],l,u,P[i+1],{\it is\_RCLO})$\;
+		$[l,u)\gets${\sc InsertAux}$(B,P[i],l,u,P[i+1],{\it is\_comp})$\;
 	}
 	{\bf return} $B$
 }
-\textbf{Function} {\sc InsertAux}$(B,c',l,u,c,{\it is\_RCLO})$
+\textbf{Function} {\sc InsertAux}$(B,c',l,u,c,{\it is\_comp})$
 \Begin {
 	$k\gets l$\;
-	\If{is\_RCLO is {\bf true} {\bf and} $c'\not={\rm ``N"}$} {
+	\If{is\_comp is {\bf true} {\bf and} $c'\not={\rm ``N"}$} {
 		\For{$a=\$$ {\bf or} $c'<a<{\rm ``N"}$} {
 			$k\gets k+\big[{\rm rank}(a,u;B_c)-{\rm rank}(a,l;B_c)\big]$\;
 		}
@@ -114,7 +114,7 @@ which lead to a faster implementation for many short strings.
 \KwIn{Existing BWT $B$ for text $T$ and a set of strings $\{P_j\}$}
 \KwOut{Updated BWT $B$ with strings inserted in the specified order}
 \BlankLine
-\textbf{Function} {\sc InsertMultiRLO}$(B,\{P_j\},{\it is\_sorted},{\it is\_RCLO})$
+\textbf{Function} {\sc InsertMultiRLO}$(B,\{P_j\},{\it is\_sorted},{\it is\_comp})$
 \Begin {
 	\For{$0\le j<|\{P_j\}|$} {
 		$A(j).i\gets j$\;
@@ -132,7 +132,7 @@ which lead to a faster implementation for many short strings.
 		\nl\For{$0\le j<|A|$} {
 			$c\gets A(j).c$\;
 			$A(j).c\gets P_{A(j).i}[|P_{A(j).i}|-1-d]$\;
-			$[A(j).l,A(j).u)\gets${\sc InsertAux}$(B,c,A(j).l,A(j).u,A(j).c,{\it is\_RCLO})$\;
+			$[A(j).l,A(j).u)\gets${\sc InsertAux}$(B,c,A(j).l,A(j).u,A(j).c,{\it is\_comp})$\;
 		}
 		\emph{Remove $A(j)$ if $A(j).c=\$$}\;
 		$d\gets d+1$\;
