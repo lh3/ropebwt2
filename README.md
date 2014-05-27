@@ -145,19 +145,30 @@ over network (details to be added later).
 
 ###Results
 
-|Dataset|w/ rev|prog         |sorted|CPU   |Real  |RSS  |Comment|
-|-------|:-----|:------------|:-----|:-----|:-----|:----|:------|
-|worm   |No    |[BCR][bcr]   |No    |2560s |2147s |1.8G |RLE encoding|
-|worm   |No    |[BCRext][bcr]|    | | | ||
-|worm   |No    |[ropebwt][rb]|No    |1196s |529s  |2.2G |Create tmp|
-|worm   |No    |ropebwt2     |No    |1611s |647s  |11.8G|-bRm10g|
-|worm   |No    |ropebwt2     |Yes   |1268s |506s  |10.5G|-brRm10g|
-|worm   |Yes   |ropebwt2     |No    |3566s |1384s |18.0G|-bm10g|
-|worm   |Yes   |ropebwt2     |Yes   |3116s |1182s |15.9G|-brm10g|
-|Venter |No    |ropebwt2     |Yes   |4.10h |1.47h |22.2G|-brRm10g|
-|Venter |Yes   |ropebwt2     |Yes   |8.85h |3.00h |29.4G|-brm10g|
-|NA12878|No    |ropebwt2     |Yes   |12.94h|4.96h |34.0G|-brRm10g|
+|Dataset|w/ rev|Algorithm        |Sorted|CPU   |Real  |RSS  |Comment|
+|-------|:-----|:----------------|:-----|:-----|:-----|:----|:------|
+|worm   |No    |[BEETL-BCR][bcr] |No    |2574s |2092s |1.8G ||
+|worm   |No    |[BEETL-BCRext][bcr]|No  |2839s |5900s |12.6M||
+|worm   |No    |[ropebwt-BCR][rb]|No    |1196s |529s  |2.2G |Create tmp|
+|worm   |No    |ropebwt2-m10g    |No    |1611s |647s  |11.8G|-bRm10g|
+|worm   |No    |ropebwt2-m10g    |Yes   |1268s |506s  |10.5G|-brRm10g|
+|worm   |Yes   |ropebwt2-m10g    |No    |3566s |1384s |18.0G|-bm10g|
+|worm   |Yes   |ropebwt2-m10g    |Yes   |3116s |1182s |15.9G|-brm10g|
+|Venter |No    |ropebwt2-m10g    |Yes   |4.10h |1.47h |22.2G|-brRm10g|
+|Venter |Yes   |ropebwt2-m10g    |Yes   |8.85h |3.00h |29.4G|-brm10g|
+|NA12878|No    |ropebwt2-m10g    |Yes   |12.94h|4.96h |34.0G|-brRm10g|
 
+* [Ropebwt][rb] comes with three algorithms: a reimplementation of BCR,
+  insertion of single strings to a B+-tree based rope and insertion of single
+  strings to a red-black-tree based rope. The BCR reimplementation is referred
+  to as the 'ropebwt' algorithm in [SGA][sga] and is evaluated here. The second
+  algorithm is the predecessor of the single-string mode of ropebwt2. The third
+  algorithm is the slowest.
+
+* For [ropebwt][rb] and ropebwt2, outputting the BWT to a plain text string
+  takes significant time. We let them dump the BWT in their internal binary
+  encoding. [BEETL][bcr] automatically chooses the RLE encoding in our
+  evaluation. Changing the BEETL encoding may also affect its performance.
 
 [1]: https://github.com/lh3/ropebwt
 [2]: http://dx.doi.org/10.1007/978-3-642-21458-5_20
@@ -171,3 +182,4 @@ over network (details to be added later).
 [cpu]: http://ark.intel.com/products/75283/Intel-Xeon-Processor-E5-2697-v2-30M-Cache-2_70-GHz
 [bcr]: https://github.com/BEETL/BEETL
 [rb]: https://github.com/lh3/ropebwt
+[sga]: https://github.com/jts/sga
