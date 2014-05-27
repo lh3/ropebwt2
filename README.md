@@ -152,7 +152,7 @@ over network (details to be added later).
 |-------|:-----|:----------------|:-----|:-----|:-----|:----|:------|
 |worm   |No    |[BEETL-BCR][bcr] |No    |2574s |2092s |1.8G ||
 |worm   |No    |[BEETL-BCRext][bcr]|No  |2839s |5900s |12.6M||
-|worm   |No    |[ropebwt-BCR][rb]|No    |1070s |480s  |2.2G |Create tmp|
+|worm   |No    |[ropebwt-BCR][rb]|No    |1070s |480s  |2.2G |-bORtf -abcr|
 |worm   |No    |ropebwt2-single  |No    |5105s |5125s |2.5G |-bR|
 |worm   |No    |ropebwt2-m10g    |No    |1611s |647s  |11.8G|-bRm10g|
 |worm   |No    |ropebwt2-m10g    |Yes   |1268s |506s  |10.5G|-brRm10g|
