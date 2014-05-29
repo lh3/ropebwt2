@@ -167,6 +167,7 @@ Isilon OneFS network file system.
 |worm   |Yes   |ropebwt2-m10g    |Yes   |3116s |1182s |15.9G|-brm10g|
 |Venter |No    |ropebwt2-m10g    |No    |3.98h |1.45h |22.8G|-bRm10g|
 |Venter |No    |ropebwt2-m10g    |Yes   |3.95h |1.44h |22.2G|-brRm10g|
+|NA12878|No    |[ropebwt-BCR][rb]|No    |6.92h |3.29h |39.3G|-bORtf -abcr|
 |NA12878|No    |[nvSetBWT][nvb]  |-     |19.33h|4.10h |63.8G|48g/4g|
 |NA12878|No    |ropebwt2-m10g    |No    |12.54h|5.06h |60.9G|-bRm10g|
 |NA12878|No    |ropebwt2-m10g    |Yes   |12.94h|4.96h |34.0G|-brRm10g|

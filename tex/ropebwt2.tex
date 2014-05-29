@@ -104,9 +104,9 @@ Algorithm 1 appends a string to an existing index by inserting each of its
 symbol from the end of $P$. It was first described
 by~\citet{DBLP:conf/cpm/ChanHL04}. Algorithm 2 constructs RLO-BWT or RCLO-BWT
 in a similar manner to Algorithm 1. The difference is that it inserts $P[i]$ to
-$[l,u)$, the suffix array interval of suffix $P_{i+1}$. This process is
-analygous to a radix sort, sorting $P$ into the existing strings in the BWT.
-Note that if we change line 1 to ``\mbox{$l\gets u\gets|\{i:B[i]=\$\}|$}'',
+$[l,u)$, the suffix array interval of suffix $P_{i+1}$. This process implicitly
+applies a radix sort, sorting $P$ into the existing strings in the BWT.  Note
+that if we change line 1 to ``\mbox{$l\gets u\gets|\{i:B[i]=\$\}|$}'',
 Algorithm 2 will be turned into Algorithm 1. Recall that the BCR
 algorithm~\citep{DBLP:journals/tcs/BauerCR13} is in effect the multi-string
 version of Algorithm 1. Following a similar reasoning, we can extend Algorithm
@@ -220,11 +220,11 @@ worm & Algorithm 1 & -  & 5125s & 100\%&2.5G & -bR \\
 worm & beetl-bcrext& -  & 5900s &  48\%&0.1G & Network$^5$\\
 Venter&Algorithm 3 & Yes& 1.44h & 274\%&22.2G & -brRm10g \\
 Venter&Algorithm 3 & No & 1.45h & 274\%&22.8G & -bRm10g \\
+12878&ropebwt-bcr  & -  & 3.29h & 210\%&39.3G & -btORf \\
 12878&nvbio        & -  &4.10h  & 471\%&63.8G & See note$^6$\\
-12878&ropebwt-bcr  & - \\
 12878&Algorithm 3  & Yes&4.96h  & 261\%&34.0G & -brRm10g \\
 12878&Algorithm 3  & No &5.06h  & 248\%&60.9G & -bRm10g \\
-12878&beetl-bcr    & - \\
+12878&beetl-bcr    & -  &       &      &      & Network$^5$\\
 \botrule
 \end{tabular}}{$^1$Data sets -- {\it worm}: 66M$\times$100bp {\it C. eleganse} reads
 from SRR065390; {\it Venter}: 32M$\times$875bp (in average) human reads
