@@ -135,7 +135,7 @@ apparently ten times slower and uses more memory on the index construction.
 1. [**worm**] 66,764,080 100bp *C. eleganse* reads from [SRR065390][ce] with pairs
    containing any ambiguous bases filtered out. The total coverage is about 66X.
 
-2. [**Venter**] 31,861,638 Craig Venter reads totaled in length 27,900,333,064bp.
+2. [**Venter**] 31,861,134 Craig Venter reads totaled in length 27,899,994,048bp.
 
 3. [**NA12878**] 1,206,555,986 101bp human reads for sample NA12878, used in my fermi paper.
    Pairs containing ambiguous bases are filtered out.
@@ -143,9 +143,8 @@ apparently ten times slower and uses more memory on the index construction.
 ###Hardware and OS
 
 CPU: 48 cores of [Xeon E5-2697 v2 at 2.70GHz][cpu]. GPU: one [Nvidia Tesla
-K40][gpu]. RAM: 132GB. OS: Red Hat Enterprise Linux 6. CUDA: 5.5. File system:
-supposedly high-performance file system over network (details to be added
-later).
+K40][gpu]. RAM: 128GB. OS: Red Hat Enterprise Linux 6. CUDA: 5.5. File system:
+Isilon OneFS network file system.
 
 ###Results
 
@@ -168,6 +167,7 @@ later).
 |worm   |Yes   |ropebwt2-m10g    |Yes   |3116s |1182s |15.9G|-brm10g|
 |Venter |No    |ropebwt2-m10g    |No    |3.98h |1.45h |22.8G|-bRm10g|
 |Venter |No    |ropebwt2-m10g    |Yes   |3.95h |1.44h |22.2G|-brRm10g|
+|NA12878|No    |[nvSetBWT][nvb]  |-     |19.33h|4.10h |63.8G|48g/4g|
 |NA12878|No    |ropebwt2-m10g    |No    |12.54h|5.06h |60.9G|-bRm10g|
 |NA12878|No    |ropebwt2-m10g    |Yes   |12.94h|4.96h |34.0G|-brRm10g|
 
@@ -178,7 +178,8 @@ later).
 
 * nvSetBWT from NVBio aborted when '-gpu-mem 6144' or higher is specified. It
   seems that nvSetBWT uses more GPU memory than -gpu-mem according to the
-  nvidia-smi report.
+  nvidia-smi report. nvSetBWT failed to build the index for Venter apparently
+  due to insufficient RAM.
 
 [1]: https://github.com/lh3/ropebwt
 [2]: http://dx.doi.org/10.1007/978-3-642-21458-5_20

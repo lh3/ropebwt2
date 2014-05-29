@@ -1,4 +1,4 @@
-\documentclass{bioinfo-pre}
+\documentclass{bioinfo}
 \copyrightyear{2014}
 \pubyear{2014}
 
@@ -12,7 +12,7 @@
 \begin{document}
 \firstpage{1}
 
-\title[Constructing BWT]{Fast and lightweight construction of FM-index allowing implicit sorting}
+\title[Constructing BWT]{Fast and lightweight construction of FM-index for large DNA sequence data sets}
 
 \author[Li]{Heng Li}
 
@@ -28,8 +28,9 @@ FM-index for a large genome or for billions of sequence reads. It is the first
 algorithm that can build the index while implicitly sorting the sequences in
 the reverse lexicographical order or the reverse-complement
 lexicographical order without a separate sorting step. The
-implementation is the fastest CPU-based tool to date for indexing millions to
-billions of short reads.
+implementation is among the fastest CPU-based tools for indexing millions to
+billions of short reads and scales better to longer sequence reads than other
+existing algorithms.
 
 \section{Availability and implementation:} https://github.com/lh3/ropebwt2
 
@@ -56,12 +57,11 @@ Let $\Sigma=\{{\tt A},{\tt C},{\tt G},{\tt T},{\tt N}\}$ be the \emph{alphabet}
 of DNA with an arbitrary lexicographical order
 ${\tt A\char60C\char60G\char60T\char60N}$. Each elememnt in $\Sigma$ is
 called a \emph{symbol} and a sequence of symbols called a \emph{string} over
-$\Sigma$. The set of all strings over $\Sigma$ is denoted as $\Sigma^*$. Given
-$P\in\Sigma^*$, $|P|$ is its length, $P[i]$ the symbol at position $i$ and
-$P_i$ the suffix starting at $i$. Let $\$$ be a sentinel that is smaller than
-all the other symbols. For simplicity, we let $P[-1]=\$$ for any string $P$. We
-also let $\widetilde{P}$ denotes the reverse of $P$ and $\overline{P}$ the
-reverse complement of $P$.
+$\Sigma$. Given a string $P$, $|P|$ is its length, $P[i]$ the symbol at
+position $i$ and $P_i$ the suffix starting at $i$. A sentinel $\$$ is smaller
+than all the other symbols. For simplicity, we let $P[-1]=\$$ for any string
+$P$. We also introduce $\widetilde{P}$ for the reverse of $P$ and
+$\overline{P}$ for the reverse complement of $P$.
 
 Given a list of strings over $\Sigma$, $(P_i)_{0\le i<m}$, let
 $T=P_0\$_0\ldots P_{m-1}\$_{m-1}$ with
@@ -85,7 +85,11 @@ or \emph{RCLO}, if $\overline{P}_i\le\overline{P}_j$ for any $i<j$.
 The \emph{RLO-BWT} of $\mathcal{C}$, denoted by $B^{\rm RLO}(\mathcal{C})$,
 is constructed by sorting strings in $\mathcal{C}$ in RLO and then applying
 the procedure in the previous paragraph on the sorted list. \emph{RCLO-BWT}
-$B^{\rm RCLO}(\mathcal{C})$ can be constructed in a similar way.
+$B^{\rm RCLO}(\mathcal{C})$ can be constructed in a similar way. In
+$B^{\rm RCLO}(\{P_i\}_i\cup\{\overline{P}_j\}_j)$, the $k$-th smallest
+sequence is the reverse complement of the $k$-th sequence in the FM-index. This
+property removes the necessity of keep an extra array to link the rank and
+the position of a sequence in the FM-index.
 
 For the description of the algorithms, we define two string operations: ${\rm
 rank}(c,k;B)$ and ${\rm insert}(c,k;B)$, where ${\rm
@@ -110,6 +114,8 @@ version of Algorithm 1. Following a similar reasoning, we can extend Algorithm
 reduced to Algorithm 1 or 2 if we insert one string at a time. We will see
 later that for short strings, Algorithm 3 is substantially faster than
 1 and 2, due to fewer cache misses and the possibility of partial parallelization.
+The time complexity of all three algorithms is $O(n\log n)$, where
+$n$ is the total number of symbols in the input.
 
 \begin{algorithm}[ht]
 \DontPrintSemicolon
@@ -197,33 +203,65 @@ later that for short strings, Algorithm 3 is substantially faster than
 \end{algorithm}
 \end{methods}
 
-\section{Results and Discussion}
-We implemented the algorithm in ropeBWT2 and evaluated its performance
-together with BEETL, an on-disk implementation of BCR, ropeBWT-BCR, an
-in-memory implementation of BCR, and NVBio, a reimplementation of the CX1
-GPU-based algorithm~\citep{DBLP:journals/corr/LiuLL14}.
-
-\begin{table}[!htb]
+\begin{table}[b]
 \processtable{Performance of BWT construction}
 {\footnotesize
 \begin{tabular}{llcrrrl}
 \toprule
-Data & Algorithm   &RCLO&  Real & CPU\% &  RSS & Comment\\
+Data$^1$& Algorithm&RCLO& Real  & CPU\% &RAM$^2$& Comments\\
 \midrule
-worm & Algorithm 1 & -  & 5125s & 100\%&2.5G & -bR \\
-worm & Algorithm 3 & No & 647s  & 249\%&11.8G & -bRm10g \\
+worm & nvbio       & -  & 316s  & 138\%&12.9G & See note$^3$\\
+worm & ropebwt-bcr & -  & 480s  & 223\%&2.2G & -btORf\\
 worm & Algorithm 3 & Yes& 506s  & 250\%&10.5G & -brRm10g \\
-worm & beetl-bcr   & -  & 2092s & 122\%&1.8G &\\
-worm & beetl-bcrext& -  & 5900s &  48\%&0.1G &\\
-worm & ropebwt-bcr & -  & 480s  & 223\%&2.2G & -bOR \\
-worm & nvbio       & -  & 316s  & 138\%&12.9G & 4g/4g\\
-Venter&Algorithm 3 & No & 1.45h & 274\%&22.8G & -bRm10g \\
+worm & Algorithm 3 & No & 647s  & 249\%&11.8G & -bRm10g \\
+worm & beetl-bcr   & -  & 965s  & 259\%&1.8G & RAM disk$^4$\\
+worm & beetl-bcr   & -  & 2092s & 122\%&1.8G & Network$^5$\\
+worm & Algorithm 1 & -  & 5125s & 100\%&2.5G & -bR \\
+worm & beetl-bcrext& -  & 5900s &  48\%&0.1G & Network$^5$\\
 Venter&Algorithm 3 & Yes& 1.44h & 274\%&22.2G & -brRm10g \\
-12878&Algorithm 3& No &5.06h  & 248\%&60.9G & -bRm10g \\
-12878&Algorithm 3& Yes&4.96h  & 261\%&34.0G & -brRm10g \\
+Venter&Algorithm 3 & No & 1.45h & 274\%&22.8G & -bRm10g \\
+12878&nvbio        & -  &4.10h  & 471\%&63.8G & See note$^6$\\
+12878&ropebwt-bcr  & - \\
+12878&Algorithm 3  & Yes&4.96h  & 261\%&34.0G & -brRm10g \\
+12878&Algorithm 3  & No &5.06h  & 248\%&60.9G & -bRm10g \\
+12878&beetl-bcr    & - \\
 \botrule
-\end{tabular}}{}
+\end{tabular}}{$^1$Data sets -- {\it worm}: 66M$\times$100bp {\it C. eleganse} reads
+from SRR065390; {\it Venter}: 32M$\times$875bp (in average) human reads
+from~\citet{Levy:2007uq} with Sanger sequencing; {\it 12878}: 1206M$\times$101bp
+human reads from~\citet{Depristo:2011vn}. $^2$Hardware -- CPU: 48 cores of
+Xeon E5-2697v2 at 2.70GHz; GPU: one Nvidia Tesla K40; RAM: 128GB; Storage:
+Isilon IQ 72000x and X400 over network. CPU time, wall-clock time and peak
+memory are measured with GNU time. $^3$Run with option `-R -cpu-mem 4096 -gpu-mem
+4096'. NVBio uses more CPU and GPU RAM than the specified. $^4$Results and
+temporary files created on in-RAM virtual disk `/dev/shm'. $^5$Results and
+temporary files created on Isilon's network file system. $^6$Run with
+option `-R -cpu-mem 48000 -gpu-mem 4096'.}
 \end{table}
+
+\vspace*{-1em}
+\section{Results and Discussion}
+We implemented the algorithm in ropeBWT2 and evaluated its performance
+together with BEETL (http://bit.ly/beetlGH), the original on-disk
+implementation of BCR and BCRext, ropeBWT-BCR (https://github.com/lh3/ropebwt),
+an in-memory reimplementation of BCR, and NVBio (http://bit.ly/NVBioGH), a
+reimplementation of the CX1 GPU-based algorithm~\citep{DBLP:journals/corr/LiuLL14}.
+Table~1 shows that for short reads, ropeBWT-BCR and NVBio are the fastest.
+RopeBWT2 is close to them for short reads and the only one that scales well to
+longer reads -- NVBio aborted on the Venter data set apparently due to
+insufficient memory; BCR is not designed for this data as its time complexity
+quadratic in the length of reads. On memory usage, BEETL is clearly the winner.
+Other algorithms use similar RAM for the 12878 data set. NVBio and ropeBWT2
+allow users to trade between speed and memory. The ropeBWT2 GitHub page shows
+the results under other settings.  The relative performance is not changed
+much.
+
+RopeBWT2 has comparable performance to other algorithms and is more flexible
+and richer in features. It will help to make FM-index based algorithms more
+performant and more practical.
+\vspace*{-1em}
+\section*{Acknowledgement}
+\paragraph{Funding\textcolon} NHGRI U54HG003037; NIH GM100233
 
 \bibliography{ropebwt2}
 \end{document}
