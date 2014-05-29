@@ -1,69 +1,125 @@
-\documentclass[10pt]{article}
+\documentclass{bioinfo-pre}
+\copyrightyear{2014}
+\pubyear{2014}
+
 \usepackage{amsmath}
-
 \usepackage[ruled,vlined]{algorithm2e}
+\usepackage{natbib}
 
-\title{Constructing BWT for Sorted Strings}
-\author{Heng Li}
+\bibliographystyle{apalike}
+
 
 \begin{document}
+\firstpage{1}
+
+\title[Constructing BWT]{Fast and lightweight construction of FM-index allowing implicit sorting}
+
+\author[Li]{Heng Li}
+
+\address{Broad Institute, 7 Cambridge Center, Cambridge, MA 02142, USA}
+
+\history{Received on XXXXX; revised on XXXXX; accepted on XXXXX}
+\editor{Associate Editor: XXXXXXX}
 \maketitle
 
-Let $\Sigma=\{\$,A,C,G,T,N\}$ be the alphabet for DNA with a predefined
-lexicographical order $\$<A<C<G<T<N$, where $\$$ is the sentinel.  Each
-elememnt in $\Sigma$ is called a \emph{symbol} and a sequence of symbol called
-a \emph{string}. Let $|P|$ denote the length of $P$ and $P[i]$ the symbol at
-position $i$. If $P[|P|-1]=\$$ and no other symbols in $P$ are sentinels, we
-call $P$ as a \emph{text} or a \emph{document}. For simplicity, we also let
-$P[-1]=\$$ for any string $P$.
+\begin{abstract}
+\section{Summary:} We present a new algorithm to incrementally construct the
+FM-index for a large genome or for billions of sequence reads. It is the first
+algorithm that can build the index while implicitly sorting the sequences in
+the reverse lexicographical order or the reverse-complement
+lexicographical order without a separate sorting step. The
+implementation is the fastest CPU-based tool to date for indexing millions to
+billions of short reads.
 
-Given a list of strings $P_i$, $0\le i<m$, their concatenation $T=P_0\ldots
-P_{m-1}$ is called a \emph{collection}. Let $\$_i$ be the sentinel of $P_i$.
-We futher introduce the lexicographical order between sentinels:
-$\$_0<\cdots<\$_{m-1}<A<C<G<T<N$, such that when comparing suffixes, we do not
-need to compare beyond sentinels.
+\section{Availability and implementation:} https://github.com/lh3/ropebwt2
 
-The \emph{suffix array} of $T$ is an integer array $S$ such that $S(i)$, $0\le
-i<|T|$, is the position of the $i$-th smallest suffix in the collection $T$.
-The \emph{Burrows-Wheeler Transform}, or \emph{BWT}, of $T$ can be computed as
-$B[i]=T[S(i)-1]$. For the description of the algorithm, we segment $B$ to
-$B=B_{\$}B_AB_CB_GB_TB_N$, where $B_a[i]=B[i+C(a)]$ and $C(a)=|\{j:T[j]<a\}|$
-being the array of accumulative counts. By the definition of suffix array and
-BWT, $B_a$ consists of all the symbols with their next symbol in $T$ being
-$a$.
+\section{Contact:} hengli@broadinstitute.org
+\end{abstract}
 
-Before we describe the algorithm for constructing BWT, we need two string
-operations: ${\rm rank}(c,k;B)$ and ${\rm insert}(c,k;B)$, where ${\rm
+\section{Introduction}
+
+FM-index plays an important role in sequence alignment, {\it de novo}
+assembly~\citep{Simpson:2012aa} and compression~\citep{Cox:2012ly}. Fast
+and lightweight construction of FM-index for a large data set is the key to
+these applications. In this context, a few algorithms have been developed for
+DNA sequences that substaintially outperform earlier
+algorithms~\citep{DBLP:journals/tcs/BauerCR13,DBLP:journals/corr/LiuLL14}.
+However, they are only efficient for short reads and require special hardware,
+a fast disk or high-end GPUs, for fast construction. A CPU-based all-purpose
+algorithm without external storage is still lacking. This work aims to fill
+this gap. In addition to fast construction, our algorithm is the first to
+simultaneously sort input, which achieves better compression~\citep{Cox:2012ly}.
+
+\section{Methods}
+\begin{methods}
+Let $\Sigma=\{{\tt A},{\tt C},{\tt G},{\tt T},{\tt N}\}$ be the \emph{alphabet}
+of DNA with an arbitrary lexicographical order
+${\tt A\char60C\char60G\char60T\char60N}$. Each elememnt in $\Sigma$ is
+called a \emph{symbol} and a sequence of symbols called a \emph{string} over
+$\Sigma$. The set of all strings over $\Sigma$ is denoted as $\Sigma^*$. Given
+$P\in\Sigma^*$, $|P|$ is its length, $P[i]$ the symbol at position $i$ and
+$P_i$ the suffix starting at $i$. Let $\$$ be a sentinel that is smaller than
+all the other symbols. For simplicity, we let $P[-1]=\$$ for any string $P$. We
+also let $\widetilde{P}$ denotes the reverse of $P$ and $\overline{P}$ the
+reverse complement of $P$.
+
+Given a list of strings over $\Sigma$, $(P_i)_{0\le i<m}$, let
+$T=P_0\$_0\ldots P_{m-1}\$_{m-1}$ with
+${\tt\char36}_0{\tt\char60}\cdots{\char60\tt\char36}_{m-1}{\tt\char60A\char60C\char60G\char60T\char60N}$.
+The \emph{suffix array} of $T$ is an integer array $S$ such that $S(i)$,
+\mbox{$0\le i<|T|$}, is the position of the $i$-th smallest suffix in the
+collection $T$.  The \emph{Burrows-Wheeler Transform}, or \emph{BWT}, of $T$
+can be computed as \mbox{$B[i]=T[S(i)-1]$}. For the description of the
+algorithm, we segment $B$ to \mbox{$B=B_{\tt\$}B_{\tt A}B_{\tt C}B_{\tt
+G}B_{\tt T}B_{\tt N}$}, where \mbox{$B_a[i]=B[i+C(a)]$} and
+\mbox{$C(a)=|\{j:T[j]<a\}|$} being the array of accumulative counts. By the
+definition of suffix array and BWT, $B_a$ consists of all the symbols with
+their next symbol in $T$ being $a$.
+
+The above defines BWT for an order list of strings. We next seek to define BWT
+for an unordered set of strings $\mathcal{C}$ by imposing an arbitrary sorting
+order on $\mathcal{C}$.  We say list $(P_i)_i$ is in the \emph{reverse
+lexicographical order} or \emph{RLO}, if $\widetilde{P}_i\le\widetilde{P}_j$
+for any $i<j$; say it is in the \emph{reverse-complement lexicographical order}
+or \emph{RCLO}, if $\overline{P}_i\le\overline{P}_j$ for any $i<j$.
+The \emph{RLO-BWT} of $\mathcal{C}$, denoted by $B^{\rm RLO}(\mathcal{C})$,
+is constructed by sorting strings in $\mathcal{C}$ in RLO and then applying
+the procedure in the previous paragraph on the sorted list. \emph{RCLO-BWT}
+$B^{\rm RCLO}(\mathcal{C})$ can be constructed in a similar way.
+
+For the description of the algorithms, we define two string operations: ${\rm
+rank}(c,k;B)$ and ${\rm insert}(c,k;B)$, where ${\rm
 rank}(c,k;B)=|\{i<k:B[i]=c\}|$ gives the number of symbols $c$ before the
 position $k$ in $B$, and ${\rm insert}(c,k;B)$ insert symbol $c$ after $k$
-symbols in $B$ with all the symbols after position $k$ shifted to
-make room for $c$. These two operations can be implemented either by encoding
-$B$ as a dynamic string with the rope data structure, which is usually based on
-a tree, or by recoding $B$ after each batch of insertions. RopeBWT2 takes the
-former approach.
+symbols in $B$ with all the symbols after position $k$ shifted to make room for
+$c$. We implemented the two operations by representing the string with a
+B+-tree, where a leaf keeps a run-length encoded string and an internal node
+keeps the count of each symbol in the leaves descended from the node.
 
-Algorithm 1 describes how to insert a string to an existing index in the input
-order. It is the same as the algorithm used by dynamic FM-index.  Algorithm 2
-shows the method for inserting one string in the reverse lexicographical order
-(RLO) or in the reverse-complement lexicographical order (RCLO). Note that if
-we change line 1 to ``$u\gets|\{i:B[i]=\$\}|; l\gets u$'', this algorithm will
-be turned into Algorithm 1. The first two algorithms insert one string at a
-time. Algorithm 3 inserts multiple strings at the same time.  The function
-supports both the input order and RLO/RCLO. The input-order version of this
-algorithm is essentially BCR. Inserting multiple strings helps cache locality
-and opens the possibility to the parallelization of the loop at line 1, both of
-which lead to a faster implementation for many short strings.
+Algorithm 1 appends a string to an existing index by inserting each of its
+symbol from the end of $P$. It was first described
+by~\citet{DBLP:conf/cpm/ChanHL04}. Algorithm 2 constructs RLO-BWT or RCLO-BWT
+in a similar manner to Algorithm 1. The difference is that it inserts $P[i]$ to
+$[l,u)$, the suffix array interval of suffix $P_{i+1}$. This process is
+analygous to a radix sort, sorting $P$ into the existing strings in the BWT.
+Note that if we change line 1 to ``\mbox{$l\gets u\gets|\{i:B[i]=\$\}|$}'',
+Algorithm 2 will be turned into Algorithm 1. Recall that the BCR
+algorithm~\citep{DBLP:journals/tcs/BauerCR13} is in effect the multi-string
+version of Algorithm 1. Following a similar reasoning, we can extend Algorithm
+2 to insert multiple strings at the same time. This gives Algorithm 3, which is
+reduced to Algorithm 1 or 2 if we insert one string at a time. We will see
+later that for short strings, Algorithm 3 is substantially faster than
+1 and 2, due to fewer cache misses and the possibility of partial parallelization.
 
 \begin{algorithm}[ht]
 \DontPrintSemicolon
 \footnotesize
-\KwIn{Existing BWT $B$ for text $T$ and a string $P$}
-\KwOut{BWT $B$ for text $T\circ P$}
+\KwIn{A string $P$ and an existing BWT $B$ for $T$}
+\KwOut{BWT for $TP\$$}
 \BlankLine
 \textbf{Function} {\sc InsertIO1}$(B,P)$
 \Begin {
-	$k\gets|\{i:B[i]=\$\}|$\;
-	$c\gets\$$\;
+	$c\gets\$$; $k\gets|\{i:B[i]=\$\}|$\;
 	\For{$i\gets|P|-1$ \KwTo $-1$} {
 		${\rm insert}(P[i],k;B_c)$\;
 		$k\gets {\rm rank}(P[i],k;B_c)+|\{a<c,j:B_a[j]=P[i]\}|$\;
@@ -71,19 +127,19 @@ which lead to a faster implementation for many short strings.
 	}
 	{\bf return} $B$
 }
-\caption{Insert one string in the input order}
+\caption{Append one string}
 \end{algorithm}
 
 \begin{algorithm}[ht]
 \DontPrintSemicolon
 \footnotesize
-\KwIn{Existing BWT $B$ in RLO/RCLO and a string $P$}
-\KwOut{BWT $B$ with $P$ inserted in RLO/RCLO}
+\KwIn{$B^{\rm RLO}(\mathcal{C})$ (or $B^{\rm RCLO}(\mathcal{C})$) and a string $P$}
+\KwOut{$B^{\rm RLO}(\mathcal{C}\cup\{P\})$ (or $B^{\rm RCLO}(\mathcal{C}\cup\{P\})$)}
 \BlankLine
 \textbf{Function} {\sc InsertRLO1}$(B,P,{\it is\_comp})$
 \Begin {
-	\nl$[l,u)\gets \big[0,|\{i:B[i]=\$\}|\big)$\;
 	$c\gets \$$\;
+	\nl$[l,u)\gets \big[0,|\{i:B[i]=\$\}|\big)$\;
 	\For{$i\gets|P|-1$ \KwTo $-1$} {
 		$[l,u)\gets${\sc InsertAux}$(B,P[i],l,u,P[i+1],{\it is\_comp})$\;
 	}
@@ -105,34 +161,33 @@ which lead to a faster implementation for many short strings.
 	$m\gets|\{a<c,j:B_a[j]=c'\}|$\;
 	{\bf return} $\big[{\rm rank}(c',l;B_c)+m,{\rm rank}(c',u;B_c)+m\big)$\;
 }
-\caption{Insert one string in RLO/RCLO}
+\caption{Insert one string to RLO/RCLO-BWT}
 \end{algorithm}
 
 \begin{algorithm}[ht]
 \DontPrintSemicolon
 \footnotesize
-\KwIn{Existing BWT $B$ for text $T$ and a set of strings $\{P_j\}$}
+\KwIn{Existing BWT $B$ and a list of strings $\{P_j\}$}
 \KwOut{Updated BWT $B$ with strings inserted in the specified order}
 \BlankLine
-\textbf{Function} {\sc InsertMultiRLO}$(B,\{P_j\},{\it is\_sorted},{\it is\_comp})$
+\textbf{Function} {\sc InsertMulti}$(B,\{P_j\},{\it is\_sorted},{\it is\_comp})$
 \Begin {
 	\For{$0\le j<|\{P_j\}|$} {
-		$A(j).i\gets j$\;
-		$A(j).c\gets \$$\;
+		$A(j).c\gets \$$; $A(j).i\gets j$\;
 		\If{is\_sorted is {\bf true}} {
 			$[A(j).l,A(j).u)\gets [0,|\{i:B[i]=\$\}|)$\;
 		} \Else {
-			$A(j).l\gets |\{i:B[i]=\$\}|+j$\;
-			$A(j).u\gets A(j).l$
+			$A(j).l\gets A(j).u\gets|\{i:B[i]=\$\}|+j$\;
 		}
 	}
 	$d\gets 0$\;
 	\While{$|A|\not=0$} {
 		\emph{Stable sort array $A$ by $A(\cdot).c$}\;
-		\nl\For{$0\le j<|A|$} {
+		\For{$0\le j<|A|$} {
 			$c\gets A(j).c$\;
 			$A(j).c\gets P_{A(j).i}[|P_{A(j).i}|-1-d]$\;
-			$[A(j).l,A(j).u)\gets${\sc InsertAux}$(B,c,A(j).l,A(j).u,A(j).c,{\it is\_comp})$\;
+			$[A(j).l,A(j).u)$\;
+			\hspace{0.1cm}$\gets${\sc InsertAux}$(B,c,A(j).l,A(j).u,A(j).c,{\it is\_comp})$\;
 		}
 		\emph{Remove $A(j)$ if $A(j).c=\$$}\;
 		$d\gets d+1$\;
@@ -140,5 +195,35 @@ which lead to a faster implementation for many short strings.
 }
 \caption{Insert multiple strings}
 \end{algorithm}
+\end{methods}
 
+\section{Results and Discussion}
+We implemented the algorithm in ropeBWT2 and evaluated its performance
+together with BEETL, an on-disk implementation of BCR, ropeBWT-BCR, an
+in-memory implementation of BCR, and NVBio, a reimplementation of the CX1
+GPU-based algorithm~\citep{DBLP:journals/corr/LiuLL14}.
+
+\begin{table}[!htb]
+\processtable{Performance of BWT construction}
+{\footnotesize
+\begin{tabular}{llcrrrl}
+\toprule
+Data & Algorithm   &RCLO&  Real & CPU\% &  RSS & Comment\\
+\midrule
+worm & Algorithm 1 & -  & 5125s & 100\%&2.5G & -bR \\
+worm & Algorithm 3 & No & 647s  & 249\%&11.8G & -bRm10g \\
+worm & Algorithm 3 & Yes& 506s  & 250\%&10.5G & -brRm10g \\
+worm & beetl-bcr   & -  & 2092s & 122\%&1.8G &\\
+worm & beetl-bcrext& -  & 5900s &  48\%&0.1G &\\
+worm & ropebwt-bcr & -  & 480s  & 223\%&2.2G & -bOR \\
+worm & nvbio       & -  & 316s  & 138\%&12.9G & 4g/4g\\
+Venter&Algorithm 3 & No & 1.45h & 274\%&22.8G & -bRm10g \\
+Venter&Algorithm 3 & Yes& 1.44h & 274\%&22.2G & -brRm10g \\
+12878&Algorithm 3& No &5.06h  & 248\%&60.9G & -bRm10g \\
+12878&Algorithm 3& Yes&4.96h  & 261\%&34.0G & -brRm10g \\
+\botrule
+\end{tabular}}{}
+\end{table}
+
+\bibliography{ropebwt2}
 \end{document}
