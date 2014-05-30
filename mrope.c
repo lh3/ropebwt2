@@ -29,6 +29,7 @@ void mr_destroy(mrope_t *r)
 	int a;
 	for (a = 0; a != 6; ++a)
 		if (r->r[a]) rope_destroy(r->r[a]);
+	free(r);
 }
 
 int mr_thr_min(mrope_t *r, int thr_min)
@@ -246,11 +247,11 @@ static void *worker(void *data)
 	worker_t *w = (worker_t*)data;
 	struct timespec req, rem;
 	req.tv_sec = 0; req.tv_nsec = 1000000;
-	while (!w->to_exit) {
+	do {
 		while (!__sync_bool_compare_and_swap(&w->to_run, 1, 0)) nanosleep(&req, &rem); // wait for the signal from the master thread
 		if (w->m) mr_insert_multi_aux(w->mr->r[w->b], w->m, w->a, w->is_comp);
 		__sync_add_and_fetch(w->n_fin_workers, 1);
-	}
+	} while (!w->to_exit);
 	return 0;
 }
 

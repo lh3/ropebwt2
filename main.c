@@ -11,7 +11,7 @@
 #include "kseq.h"
 KSEQ_INIT(gzFile, gzread)
 
-#define ROPEBWT2_VERSION "r162"
+#define ROPEBWT2_VERSION "r163"
 
 static unsigned char seq_nt6_table[128] = {
     0, 5, 5, 5,  5, 5, 5, 5,  5, 5, 5, 5,  5, 5, 5, 5,
@@ -159,9 +159,6 @@ int main_ropebwt2(int argc, char *argv[])
 		fprintf(stderr, "         -b         dump the index in the binary FMR format\n");
 		fprintf(stderr, "         -d         dump the index in fermi's FMD format\n");
 		fprintf(stderr, "         -T         output the index in the Newick format (for debugging)\n\n");
-		fprintf(stderr, "Note: To construct the BWT for a well assembled genome, use -m0 (the default). To construct\n");
-		fprintf(stderr, "      for many sequence reads, use -m10g if unsure. Option -m does not change the result,\n");
-		fprintf(stderr, "      but it may have a big impact on the performance and the peak memory.\n\n");
 		return 1;
 	}
 
@@ -240,6 +237,7 @@ int main_ropebwt2(int argc, char *argv[])
 	}
 	if (verbose >= 3) fprintf(stderr, "[M::%s] constructed FM-index in %.3f sec, %.3f CPU sec\n",
 			__func__, realtime() - rt, cputime() - ct);
+	free(buf.s);
 	kseq_destroy(ks);
 	gzclose(fp);
 
