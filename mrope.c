@@ -191,7 +191,11 @@ static void mr_insert_multi_aux(rope_t *rope, int64_t m, triple64_t *a, int is_c
 		if (k == m || a[k].u != a[k-1].u) {
 			int64_t x, i, l = a[beg].l, u = a[beg].u, tl[6], tu[6], c[6];
 			int start, end, step, b;
-			if (l == u) {
+			if (l == u && k == beg + 1) { // special case; still works without the following block
+				a[beg].l = a[beg].u = rope_insert_run(rope, l, a[beg].c, 1, &cache);
+				beg = k;
+				continue;
+			} else if (l == u) {
 				memset(tl, 0, 48);
 				memset(tu, 0, 48);
 			} else rope_rank2a(rope, l, u, tl, tu);

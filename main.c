@@ -11,7 +11,7 @@
 #include "kseq.h"
 KSEQ_INIT(gzFile, gzread)
 
-#define ROPEBWT2_VERSION "r161"
+#define ROPEBWT2_VERSION "r162"
 
 static unsigned char seq_nt6_table[128] = {
     0, 5, 5, 5,  5, 5, 5, 5,  5, 5, 5, 5,  5, 5, 5, 5,
@@ -93,13 +93,13 @@ int main_ropebwt2(int argc, char *argv[])
 	mrope_t *mr = 0;
 	gzFile fp;
 	kseq_t *ks;
-	int64_t m = 0;
-	int c, i, block_len = ROPE_DEF_BLOCK_LEN, max_nodes = ROPE_DEF_MAX_NODES, from_stdin = 0, verbose = 3, so = MR_SO_IO, min_q = 0;
+	int64_t m = (int64_t)(.97 * 10 * 1024 * 1024 * 1024) + 1;;
+	int c, i, block_len = ROPE_DEF_BLOCK_LEN, max_nodes = ROPE_DEF_MAX_NODES, from_stdin = 0, verbose = 3, so = MR_SO_IO, min_q = 0, thr_min = -1;
 	int flag = FLAG_FOR | FLAG_REV | FLAG_THR;
 	kstring_t buf = { 0, 0, 0 };
 	double ct, rt;
 
-	while ((c = getopt(argc, argv, "PNLTFRCtrbdsl:n:m:v:o:i:q:")) >= 0) {
+	while ((c = getopt(argc, argv, "PNLTFRCtrbdsl:n:m:v:o:i:q:M:")) >= 0) {
 		if (c == 'o') freopen(optarg, "w", stdout);
 		else if (c == 'F') flag &= ~FLAG_FOR;
 		else if (c == 'R') flag &= ~FLAG_REV;
@@ -117,6 +117,7 @@ int main_ropebwt2(int argc, char *argv[])
 		else if (c == 'n') max_nodes= atoi(optarg);
 		else if (c == 'v') verbose = atoi(optarg);
 		else if (c == 'q') min_q = atoi(optarg);
+		else if (c == 'M') thr_min = atoi(optarg);
 		else if (c == 'i') {
 			FILE *fp;
 			if ((fp = fopen(optarg, "rb")) == 0) {
@@ -132,7 +133,7 @@ int main_ropebwt2(int argc, char *argv[])
 			if (*p == 'K' || *p == 'k') x *= 1024;
 			else if (*p == 'M' || *p == 'm') x *= 1024 * 1024;
 			else if (*p == 'G' || *p == 'g') x *= 1024 * 1024 * 1024;
-			m = (int64_t)(x * .97) + 1;
+			m = x? (int64_t)(x * .97) + 1 : 0;
 		}
 	}
 
@@ -144,8 +145,9 @@ int main_ropebwt2(int argc, char *argv[])
 		fprintf(stderr, "         -n INT     max number children per internal node [%d]\n", max_nodes);
 		fprintf(stderr, "         -s         build BWT in the reverse lexicographical order (RLO)\n");
 		fprintf(stderr, "         -r         build BWT in RCLO, overriding -s \n");
-		fprintf(stderr, "         -m INT     batch size for multi-string indexing; 0 for single-string [0]\n");
-		fprintf(stderr, "         -P         always use a single thread\n\n");
+		fprintf(stderr, "         -m INT     batch size for multi-string indexing; 0 for single-string [10g]\n");
+		fprintf(stderr, "         -P         always use a single thread\n");
+		fprintf(stderr, "         -M INT     switch to single thread when < INT strings remain in a batch [%d]\n\n", 500);
 		fprintf(stderr, "         -i FILE    read existing index in the FMR format from FILE, overriding -s/-r [null]\n");
 		fprintf(stderr, "         -L         input in the one-sequence-per-line format\n");
 		fprintf(stderr, "         -F         skip forward strand\n");
@@ -165,6 +167,7 @@ int main_ropebwt2(int argc, char *argv[])
 
 	liftrlimit();
 	if (mr == 0) mr = mr_init(max_nodes, block_len, so);
+	if (thr_min > 0) mr_thr_min(mr, thr_min);
 	fp = !from_stdin && strcmp(argv[optind], "-")? gzopen(argv[optind], "rb") : gzdopen(fileno(stdin), "rb");
 	ks = kseq_init(fp);
 	ct = cputime(); rt = realtime();
