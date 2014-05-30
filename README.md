@@ -171,6 +171,7 @@ Isilon OneFS network file system.
 |NA12878|No    |[nvSetBWT][nvb]  |-     |19.33h|4.10h |63.8G|48g/4g|
 |NA12878|No    |ropebwt2-m10g    |No    |12.54h|5.06h |60.9G|-bRm10g|
 |NA12878|No    |ropebwt2-m10g    |Yes   |12.94h|4.96h |34.0G|-brRm10g|
+|NA12878|No    |BEETL-BCR        |-     |14.66h|11.18h|31.6G|network disk|
 
 * For [ropebwt][rb] and ropebwt2, outputting the BWT to a plain text string
   takes significant time. We let them dump the BWT in their internal binary

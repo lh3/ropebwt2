@@ -18,6 +18,7 @@ mrope_t *mr_init(int max_nodes, int block_len, int sorting_order)
 	assert(sorting_order >= 0 && sorting_order <= 2);
 	r = calloc(1, sizeof(mrope_t));
 	r->so = sorting_order;
+	r->thr_min = 100;
 	for (a = 0; a != 6; ++a)
 		r->r[a] = rope_init(max_nodes, block_len);
 	return r;
@@ -28,6 +29,13 @@ void mr_destroy(mrope_t *r)
 	int a;
 	for (a = 0; a != 6; ++a)
 		if (r->r[a]) rope_destroy(r->r[a]);
+}
+
+int mr_thr_min(mrope_t *r, int thr_min)
+{
+	if (thr_min > 0)
+		r->thr_min = thr_min;
+	return r->thr_min;
 }
 
 int64_t mr_insert1(mrope_t *r, const uint8_t *str)
@@ -245,12 +253,13 @@ static void *worker(void *data)
 void mr_insert_multi(mrope_t *mr, int64_t len, const uint8_t *s, int is_thr)
 {
 	int64_t k, m, n0;
-	int b, is_srt = (mr->so != MR_SO_IO), is_comp = (mr->so == MR_SO_RCLO);
+	int b, is_srt = (mr->so != MR_SO_IO), is_comp = (mr->so == MR_SO_RCLO), stop_thr = 0;
 	volatile int n_fin_workers = 0;
 	triple64_t *a[2], *curr, *prev, *swap;
 	pthread_t *tid = 0;
 	worker_t *w = 0;
 
+	if (mr->thr_min < 0) mr->thr_min = 0;
 	assert(len > 0 && s[len-1] == 0);
 	{ // split into short strings
 		cstr_t p, q, end = s + len;
@@ -281,7 +290,7 @@ void mr_insert_multi(mrope_t *mr, int64_t len, const uint8_t *s, int is_thr)
 		for (b = 0; b < 4; ++b) pthread_create(&tid[b], 0, worker, &w[b]);
 	}
 
-	n0 = 0;
+	n0 = 0; // the number of inserted strings
 	while (m) {
 		int64_t c[6], ac[6];
 		triple64_t *q[6];
@@ -295,17 +304,20 @@ void mr_insert_multi(mrope_t *mr, int64_t len, const uint8_t *s, int is_thr)
 		}
 		n0 += c[0];
 
-		if (is_thr) {
+		if (is_thr && !stop_thr) {
 			struct timespec req, rem;
 			req.tv_sec = 0; req.tv_nsec = 1000000;
+			stop_thr = (m - n0 <= mr->thr_min);
 			for (b = 0; b < 4; ++b) {
 				w[b].a = q[b+1], w[b].m = c[b+1];
-				if (n0 == m) w[b].to_exit = 1; // signal the workers to exit
+				if (stop_thr) w[b].to_exit = 1; // signal the workers to exit
 				while (!__sync_bool_compare_and_swap(&w[b].to_run, 0, 1)); // signal the workers to start
 			}
 			if (c[5]) mr_insert_multi_aux(mr->r[5], c[5], q[5], is_comp); // the master thread processes the "N" bucket
 			while (!__sync_bool_compare_and_swap(&n_fin_workers, 4, 0)) // wait until all 4 workers finish
 				nanosleep(&req, &rem);
+			if (stop_thr && n0 < m)
+				fprintf(stderr, "[M::%s] Turn off parallelization for this batch as too few strings are left.\n", __func__);
 		} else {
 			for (b = 1; b < 6; ++b)
 				if (c[b]) mr_insert_multi_aux(mr->r[b], c[b], q[b], is_comp);

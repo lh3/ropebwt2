@@ -9,6 +9,7 @@
 
 typedef struct {
 	uint8_t so; // sorting order
+	int thr_min; // when there are fewer sequences than this, disable multi-threading
 	rope_t *r[6];
 } mrope_t; // multi-rope
 
@@ -32,6 +33,8 @@ extern "C" {
 	mrope_t *mr_init(int max_nodes, int block_len, int sorting_order);
 
 	void mr_destroy(mrope_t *r);
+
+	int mr_thr_min(mrope_t *r, int thr_min);
 
 	/**
 	 * Insert one string into the index
