@@ -135,10 +135,15 @@ apparently ten times slower and uses more memory on the index construction.
 1. [**worm**] 66,764,080 100bp *C. eleganse* reads from [SRR065390][ce] with pairs
    containing any ambiguous bases filtered out. The total coverage is about 66X.
 
-2. [**Venter**] 31,861,134 Craig Venter reads totaled in length 27,899,994,048bp.
+2. [**Venter**] 31,861,134 [Craig Venter reads][venter] totalled in 27,899,994,048bp.
+   Reads containing ambiguous bases have been dropped.
 
 3. [**NA12878**] 1,206,555,986 101bp human reads for sample NA12878, used in my fermi paper.
-   Pairs containing ambiguous bases are filtered out.
+   Pairs containing ambiguous bases are filtered out. The data is at [1000g FTP][12878].
+   Only read groups matching "20FUK" are used.
+
+4. [**Moleculo**] 22,721,139 [Moleculo reads][mol] totalled in 91,476,572,938bp.
+   This data set contains a few hundred ambiguous bases which are not filtered.
 
 ###Hardware and OS
 
@@ -166,6 +171,7 @@ Isilon OneFS network file system.
 |worm   |Yes   |ropebwt2-m10g    |No    |3566s |1384s |18.0G|-bm10g|
 |worm   |Yes   |ropebwt2-m10g    |Yes   |3116s |1182s |15.9G|-brm10g|
 |Venter |No    |ropebwt2-m10g    |No    |3.98h |1.45h |22.8G|-bRm10g|
+|Moleculo|No   |ropebwt2-m10g    |No    |19.46h|6.82h |20.0G|-bRm10g|
 |Venter |No    |ropebwt2-m10g    |Yes   |3.95h |1.44h |22.2G|-brRm10g|
 |NA12878|No    |[ropebwt-BCR][rb]|No    |6.92h |3.29h |39.3G|-bORtf -abcr|
 |NA12878|No    |[nvSetBWT][nvb]  |-     |19.33h|4.10h |63.8G|48g/4g|
@@ -198,3 +204,6 @@ Isilon OneFS network file system.
 [rb]: https://github.com/lh3/ropebwt
 [sga]: https://github.com/jts/sga
 [nvb]: https://github.com/NVlabs/nvbio
+[mol]: ftp://ftp.ncbi.nih.gov/1000genomes/ftp/technical/working/20131209_na12878_moleculo/
+[12878]: ftp://ftp.ncbi.nih.gov/1000genomes/ftp/technical/working/20130103_high_cov_trio_bams/NA12878/alignment/
+[venter]: ftp://ftp.ncbi.nih.gov/pub/TraceDB/Personal_Genomics/Venter/
