@@ -18,7 +18,7 @@ mrope_t *mr_init(int max_nodes, int block_len, int sorting_order)
 	assert(sorting_order >= 0 && sorting_order <= 2);
 	r = calloc(1, sizeof(mrope_t));
 	r->so = sorting_order;
-	r->thr_min = 100;
+	r->thr_min = 1000;
 	for (a = 0; a != 6; ++a)
 		r->r[a] = rope_init(max_nodes, block_len);
 	return r;

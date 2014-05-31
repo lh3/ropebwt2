@@ -11,7 +11,7 @@
 #include "kseq.h"
 KSEQ_INIT(gzFile, gzread)
 
-#define ROPEBWT2_VERSION "r163"
+#define ROPEBWT2_VERSION "r164"
 
 static unsigned char seq_nt6_table[128] = {
     0, 5, 5, 5,  5, 5, 5, 5,  5, 5, 5, 5,  5, 5, 5, 5,
@@ -147,7 +147,7 @@ int main_ropebwt2(int argc, char *argv[])
 		fprintf(stderr, "         -r         build BWT in RCLO, overriding -s \n");
 		fprintf(stderr, "         -m INT     batch size for multi-string indexing; 0 for single-string [10g]\n");
 		fprintf(stderr, "         -P         always use a single thread\n");
-		fprintf(stderr, "         -M INT     switch to single thread when < INT strings remain in a batch [%d]\n\n", 500);
+		fprintf(stderr, "         -M INT     switch to single thread when < INT strings remain in a batch [%d]\n\n", 1000);
 		fprintf(stderr, "         -i FILE    read existing index in the FMR format from FILE, overriding -s/-r [null]\n");
 		fprintf(stderr, "         -L         input in the one-sequence-per-line format\n");
 		fprintf(stderr, "         -F         skip forward strand\n");
