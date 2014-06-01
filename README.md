@@ -204,6 +204,6 @@ Isilon OneFS network file system.
 [rb]: https://github.com/lh3/ropebwt
 [sga]: https://github.com/jts/sga
 [nvb]: https://github.com/NVlabs/nvbio
-[mol]: ftp://ftp.ncbi.nih.gov/1000genomes/ftp/technical/working/20131209_na12878_moleculo/
+[mol]: http://bit.ly/mol12878
 [12878]: ftp://ftp.ncbi.nih.gov/1000genomes/ftp/technical/working/20130103_high_cov_trio_bams/NA12878/alignment/
-[venter]: ftp://ftp.ncbi.nih.gov/pub/TraceDB/Personal_Genomics/Venter/
+[venter]: http://bit.ly/levy2007
