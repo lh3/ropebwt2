@@ -12,7 +12,7 @@
 \begin{document}
 \firstpage{1}
 
-\title[Constructing BWT]{Fast and lightweight construction of FM-index for large DNA sequence data sets}
+\title[Constructing BWT]{Fast and lightweight construction of FM-index for long sequence reads}
 
 \author[Li]{Heng Li}
 
@@ -23,14 +23,13 @@
 \maketitle
 
 \begin{abstract}
-\section{Summary:} We present a new algorithm to incrementally construct the
-FM-index for a large genome or for billions of sequence reads. It is the first
-algorithm that can build the index while implicitly sorting the sequences in
-the reverse lexicographical order or the reverse-complement
-lexicographical order without a separate sorting step. The
-implementation is among the fastest CPU-based tools for indexing millions to
-billions of short reads and scales better to longer sequence reads than other
-existing algorithms.
+\section{Summary:} We present a new method to incrementally construct the
+FM-index for both short and long sequence reads, up to the size of a genome.
+It is the first algorithm that can build the index while implicitly sorting the
+sequences in the reverse (complement) lexicographical order without a separate
+sorting step. The implementation is among the fastest for indexing short reads
+and and the only tool that practically works for reads of averaged kilobases in
+length.
 
 \section{Availability and implementation:} https://github.com/lh3/ropebwt2
 
@@ -48,8 +47,7 @@ algorithms~\citep{DBLP:journals/tcs/BauerCR13,DBLP:journals/corr/LiuLL14}.
 However, they are only efficient for short reads and require special hardware,
 a fast disk or high-end GPUs, for fast construction. A CPU-based all-purpose
 algorithm without external storage is still lacking. This work aims to fill
-this gap. In addition to fast construction, our algorithm is the first to
-simultaneously sort input, which achieves better compression~\citep{Cox:2012ly}.
+this gap.
 
 \section{Methods}
 \begin{methods}
@@ -89,7 +87,8 @@ $B^{\rm RCLO}(\mathcal{C})$ can be constructed in a similar way. In
 $B^{\rm RCLO}(\{P_i\}_i\cup\{\overline{P}_j\}_j)$, the $k$-th smallest
 sequence is the reverse complement of the $k$-th sequence in the FM-index. This
 property removes the necessity of keep an extra array to link the rank and
-the position of a sequence in the FM-index.
+the position of a sequence in the FM-index. For short reads, RLO/RCLO-BWT
+is also more compressible~\citep{Cox:2012ly}.
 
 For the description of the algorithms, we define two string operations: ${\rm
 rank}(c,k;B)$ and ${\rm insert}(c,k;B)$, where ${\rm
@@ -218,21 +217,25 @@ worm & beetl-bcr   & -  & 965s  & 259\%&1.8G & RAM disk$^4$\\
 worm & beetl-bcr   & -  & 2092s & 122\%&1.8G & Network$^5$\\
 worm & Algorithm 1 & -  & 5125s & 100\%&2.5G & -bR \\
 worm & beetl-bcrext& -  & 5900s &  48\%&0.1G & Network$^5$\\
-Venter&Algorithm 3 & Yes& 1.44h & 274\%&22.2G & -brRm10g \\
-Venter&Algorithm 3 & No & 1.45h & 274\%&22.8G & -bRm10g \\
-12878&ropebwt-bcr  & -  & 3.29h & 210\%&39.3G & -btORf \\
-12878&nvbio        & -  &4.10h  & 471\%&63.8G & See note$^6$\\
-12878&Algorithm 3  & Yes&4.96h  & 261\%&34.0G & -brRm10g \\
-12878&Algorithm 3  & No &5.06h  & 248\%&60.9G & -bRm10g \\
-12878&beetl-bcr    & -  &       &      &      & Network$^5$\\
+12878&ropebwt-bcr  & -  & 3.3h & 210\%&39.3G & -btORf \\
+12878&nvbio        & -  &4.1h  & 471\%&63.8G & See note$^6$\\
+12878&Algorithm 3  & Yes&5.0h  & 261\%&34.0G & -brRm10g \\
+12878&Algorithm 3  & No &5.1h  & 248\%&60.9G & -bRm10g \\
+12878&beetl-bcr    & -  &11.2h & 131\%&31.6G & Network$^5$\\
+Venter&Algorithm 3 & Yes& 1.4h & 274\%&22.2G & -brRm10g \\
+Venter&Algorithm 3 & No & 1.5h & 274\%&22.8G & -bRm10g \\
+mol  &Algorithm 3  & No & 6.8h & 285\%&20.0G & -bRm10g \\
+
 \botrule
-\end{tabular}}{$^1$Data sets -- {\it worm}: 66M$\times$100bp {\it C. eleganse} reads
-from SRR065390; {\it Venter}: 32M$\times$875bp (in average) human reads
-from~\citet{Levy:2007uq} with Sanger sequencing; {\it 12878}: 1206M$\times$101bp
-human reads from~\citet{Depristo:2011vn}. $^2$Hardware -- CPU: 48 cores of
+\end{tabular}}{$^1$Data sets --
+{\it worm}: 66M$\times$100bp {\it C. eleganse} reads from SRR065390;
+{\it 12878}: 1206M$\times$101bp human reads for sample NA12878~\citep{Depristo:2011vn}.
+{\it Venter}: 32M$\times$875bp (in average) human reads with Sanger sequencing (\citealt*{Levy:2007uq}; http://bit.ly/levy2007);
+{\it mol}: 23M$\times$4026bp (in average) human reads with Illumina's Moleculo sequencing (http://bit.ly/mol12878).
+$^2$Hardware -- CPU: 48 cores of
 Xeon E5-2697v2 at 2.70GHz; GPU: one Nvidia Tesla K40; RAM: 128GB; Storage:
 Isilon IQ 72000x and X400 over network. CPU time, wall-clock time and peak
-memory are measured with GNU time. $^3$Run with option `-R -cpu-mem 4096 -gpu-mem
+memory are measured by GNU time. $^3$Run with option `-R -cpu-mem 4096 -gpu-mem
 4096'. NVBio uses more CPU and GPU RAM than the specified. $^4$Results and
 temporary files created on in-RAM virtual disk `/dev/shm'. $^5$Results and
 temporary files created on Isilon's network file system. $^6$Run with
@@ -246,19 +249,16 @@ together with BEETL (http://bit.ly/beetlGH), the original on-disk
 implementation of BCR and BCRext, ropeBWT-BCR (https://github.com/lh3/ropebwt),
 an in-memory reimplementation of BCR by us, and NVBio (http://bit.ly/NVBioGH), a
 reimplementation of the CX1 GPU-based algorithm~\citep{DBLP:journals/corr/LiuLL14}.
-Table~1 shows that for short reads, ropeBWT-BCR and NVBio are the fastest.
-RopeBWT2 is close to them for short reads and the only one that scales well to
-longer reads -- NVBio aborted on the Venter data set apparently due to
-insufficient memory; BCR is not designed for this data as its time complexity
-quadratic in the length of reads. On memory usage, BEETL is clearly the winner.
-Other algorithms use similar RAM for the 12878 data set. NVBio and ropeBWT2
-allow users to trade between speed and memory. The ropeBWT2 GitHub page shows
-the results under other settings.  The relative performance is not changed
-much.
+Table~1 shows that for short reads, ropeBWT2 has comparable performance to
+others. For the 875bp or so Venter data set, NVBio aborted due to insufficient
+memory under various settings. We did not applied BCR because its time
+complexity is quadratic in the length of reads. Only ropeBWT2 works with
+this data set and the even longer moleculo reads.
 
-RopeBWT2 has comparable performance to other algorithms and is more flexible
-and richer in features. It will help to make FM-index based algorithms more
-performant and more practical.
+In addition to fast construction, ropeBWT2 is able to add strings
+to an existing BWT while maintaining RLO/RCLO. It is possible to delete
+strings from a BWT and to generate a sampled suffix array in parallel,
+though these functionalities have not been implemented.
 \vspace*{-1em}
 \section*{Acknowledgement}
 \paragraph{Funding\textcolon} NHGRI U54HG003037; NIH GM100233
