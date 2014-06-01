@@ -12,7 +12,7 @@
 \begin{document}
 \firstpage{1}
 
-\title[Constructing BWT]{Fast and lightweight construction of FM-index for long sequence reads}
+\title[Constructing BWT]{Fast construction of FM-index for long sequence reads}
 
 \author[Li]{Heng Li}
 
@@ -41,21 +41,22 @@ length.
 FM-index plays an important role in sequence alignment, {\it de novo}
 assembly~\citep{Simpson:2012aa} and compression~\citep{Cox:2012ly}. Fast
 and lightweight construction of FM-index for a large data set is the key to
-these applications. In this context, a few algorithms have been developed for
-DNA sequences that substaintially outperform earlier
-algorithms~\citep{DBLP:journals/tcs/BauerCR13,DBLP:journals/corr/LiuLL14}.
-However, they are only efficient for short reads and require special hardware,
-a fast disk or high-end GPUs. A CPU-based all-purpose algorithm without
-external storage is still lacking. This work aims to fill this gap.
+these applications. In this context, a few
+algorithms~\citep{DBLP:journals/tcs/BauerCR13,DBLP:journals/corr/LiuLL14} have
+been developed for DNA sequences that substaintially outperform earlier
+algorithms.  However, they are only efficient for short reads and require
+special hardware, a fast disk or a high-end GPU. An efficient and practical
+algorithm for long sequence reads is still lacking. This work aims to fill this
+gap.
 
 \section{Methods}
 \begin{methods}
 Let $\Sigma=\{{\tt A},{\tt C},{\tt G},{\tt T},{\tt N}\}$ be the \emph{alphabet}
-of DNA with an arbitrary lexicographical order
+of DNA with a lexicographical order
 ${\tt A\char60C\char60G\char60T\char60N}$. Each elememnt in $\Sigma$ is
 called a \emph{symbol} and a sequence of symbols called a \emph{string} over
-$\Sigma$. Given a string $P$, $|P|$ is its length, $P[i]$ the symbol at
-position $i$ and $P[i,j]$ a substring between $[i,j)$. A sentinel $\$$ is smaller
+$\Sigma$. Given a string $P$, $|P|$ is its length and $P[i]$ the symbol at
+position $i$. A sentinel $\$$ is smaller
 than all the other symbols. For simplicity, we let $P[-1]=\$$ for any string
 $P$. We also introduce $\widetilde{P}$ as the reverse of $P$ and
 $\overline{P}$ as the reverse complement of $P$.
@@ -67,7 +68,7 @@ The \emph{suffix array} of $T$ is an integer array $S$ such that $S(i)$,
 \mbox{$0\le i<|T|$}, is the position of the $i$-th smallest suffix in the
 collection $T$.  The \emph{Burrows-Wheeler Transform}, or \emph{BWT}, of $T$
 can be computed as \mbox{$B[i]=T[S(i)-1]$}. For the description of the
-algorithm, we segment $B$ to \mbox{$B=B_{\tt\$}B_{\tt A}B_{\tt C}B_{\tt
+algorithm, we segment $B$ into \mbox{$B=B_{\tt\$}B_{\tt A}B_{\tt C}B_{\tt
 G}B_{\tt T}B_{\tt N}$}, where \mbox{$B_a[i]=B[i+C(a)]$} and
 \mbox{$C(a)=|\{j:T[j]<a\}|$} being the array of accumulative counts. By the
 definition of suffix array and BWT, $B_a$ consists of all the symbols with
@@ -85,14 +86,15 @@ the procedure in the previous paragraph on the sorted list. \emph{RCLO-BWT}
 $B^{\rm RCLO}(\mathcal{C})$ can be constructed in a similar way. In
 $B^{\rm RCLO}(\{P_i\}_i\cup\{\overline{P}_j\}_j)$, the $k$-th smallest
 sequence is the reverse complement of the $k$-th sequence in the FM-index. This
-property removes the necessity of keep an extra array to link the rank and
-the position of a sequence in the FM-index. For short reads, RLO/RCLO-BWT
+property removes the necessity of keeping an extra array to link the rank and
+the position of a sequence in the FM-index, and thus helps to reduce the memory
+of some FM-index based algorithms~\citep{Simpson:2012aa}. For short reads, RLO/RCLO-BWT
 is also more compressible~\citep{Cox:2012ly}.
 
 As a preparation, we further define two string operations: ${\rm
 rank}(c,k;B)$ and ${\rm insert}(c,k;B)$, where ${\rm
 rank}(c,k;B)=|\{i<k:B[i]=c\}|$ gives the number of symbols $c$ before the
-position $k$ in $B$, and ${\rm insert}(c,k;B)$ insert symbol $c$ after $k$
+position $k$ in $B$, and ${\rm insert}(c,k;B)$ inserts symbol $c$ after $k$
 symbols in $B$ with all the symbols after position $k$ shifted to make room for
 $c$. We implemented the two operations by representing the string $B$ with a
 B+-tree, where a leaf keeps a run-length encoded string and an internal node
@@ -102,21 +104,26 @@ Algorithm 1 appends a string to an existing index by inserting each of its
 symbol from the end of $P$. It was first described
 by~\citet{DBLP:conf/cpm/ChanHL04}. Algorithm 2 constructs RLO/RCLO-BWT
 in a similar manner to Algorithm 1. The difference lies in that it inserts $P[i]$ to
-$[l,u)$, the suffix array interval of suffix $P[i+1,|P|]$. This process implicitly
+$[l,u)$, the suffix array interval of $P$'s suffix starting at $i+1$. This process implicitly
 applies a radix sort from the end of $P$, sorting it into the existing strings
 in the BWT in RLO/RCLO.  Note that if we change line 1 to ``\mbox{$l\gets
 u\gets|\{i:B[i]=\$\}|$}'', Algorithm 2 will be turned into Algorithm 1. Recall
-that the BCR algorithm~\citep{DBLP:journals/tcs/BauerCR13} is in effect the
+that the BCR algorithm~\citep{DBLP:journals/tcs/BauerCR13} is, to some extent, the
 multi-string version of Algorithm 1. Following similar reasoning, we can extend
 Algorithm 2 so as to insert multiple strings at the same time. This gives Algorithm
 3, which is reduced to Algorithm 1 or 2 if we insert one string at a time.
 
-The time complexity of all three algorithms is $O(n\log n)$, where
-$n$ is the total number of symbols in the input. However, we will see
-later that for short strings, Algorithm 3 is substantially faster than
-the first two algorithms, due to better locality of memory accesses, the possibility of
-cached B+-tree update, and the parallelization of the `for' loop at line 1.
-These techniques are more effective for a larger batch of shorter strings.
+When $B$ is represented by a balanced tree structure, the time complexity of
+all three algorithms is $O(n\log n)$, where $n$ is the total number of symbols
+in the input. However, we will see later that for short strings, Algorithm 3 is
+substantially faster than the first two algorithms, due to the locality of
+memory accesses, the possibility of cached B+-tree update, and the
+parallelization of the `for' loop at line 1.  These techniques are more
+effective for a larger batch of shorter strings.
+
+Disregarding RLO/RCLO, Algorithm 3 is similar to BCR except that BCR
+keeps $B$ in monolithic arrays. As a result, the time complexity of
+BCR is $O(nl)$, where $l$ is the maximum length of reads, not scaling well to $l$.
 
 \begin{algorithm}[ht]
 \DontPrintSemicolon
@@ -250,13 +257,13 @@ option `-R -cpu-mem 48000 -gpu-mem 4096'.}
 We implemented the algorithm in ropeBWT2 and evaluated its performance
 together with BEETL (http://bit.ly/beetlGH), the original on-disk
 implementation of BCR and BCRext, ropeBWT-BCR (https://github.com/lh3/ropebwt),
-an in-memory reimplementation of BCR by us, and NVBio (http://bit.ly/NVBioGH), a
+an in-memory reimplementation of BCR by us, and NVBio (http://bit.ly/nvbioio), a
 reimplementation of the CX1 GPU-based algorithm~\citep{DBLP:journals/corr/LiuLL14}.
 Table~1 shows that for short reads (the worm and 12878 data sets), ropeBWT2 has comparable performance to
 others. For the 875bp or so Venter data set, NVBio aborted due to insufficient
-memory under various settings. We did not apply BCR because its time
-complexity is quadratic in the length of reads. Only ropeBWT2 works with
-this data set and the even longer moleculo reads.
+memory under various settings. We did not apply BCR because it is not designed
+for long reads. Only ropeBWT2 works with this data set and the even longer
+moleculo reads.
 
 In addition to fast construction, ropeBWT2 is able to add strings
 to an existing BWT while maintaining RLO/RCLO. It is possible to delete
