@@ -158,26 +158,26 @@ Isilon OneFS network file system.
 |worm   |No    |[BEETL-BCR][bcr] |-     |2574s |2092s |1.8G |network disk|
 |worm   |No    |[BEETL-BCR][bcr] |-     |2497s |965s  |1.8G |RAM disk|
 |worm   |No    |[BEETL-BCRext][bcr]|-   |2839s |5900s |12.6M|network disk|
-|worm   |No    |[ropebwt-BCR][rb]|No    |1070s |480s  |2.2G |-bORtf -abcr|
-|worm   |No    |[ropebwt-bpr][rb]|-     |4279s |4296s |2.3G |-bOR|
-|worm   |No    |[ropebwt-rbr][rb]|-     |8895s |8915s |2.3G |-bOR -arbr|
 |worm   |No    |[nvSetBWT][nvb]  |-     |484s  |416s  |10.9G|mem: 2g/4g|
 |worm   |No    |[nvSetBWT][nvb]  |-     |435s  |316s  |12.9G|mem: 4g/4g|
 |worm   |No    |[nvSetBWT][nvb]  |-     |434s  |309s  |24.9G|mem: 16g/4g|
 |worm   |No    |[nvSetBWT][nvb]  |-     |499s  |480s  |21.5G|mem: 16g/2g|
-|worm   |No    |ropebwt2-single  |No    |5105s |5125s |2.5G |-bR|
-|worm   |No    |ropebwt2-m10g    |No    |1611s |647s  |11.8G|-bRm10g|
-|worm   |No    |ropebwt2-m10g    |Yes   |1268s |506s  |10.5G|-brRm10g|
-|worm   |Yes   |ropebwt2-m10g    |No    |3566s |1384s |18.0G|-bm10g|
-|worm   |Yes   |ropebwt2-m10g    |Yes   |3116s |1182s |15.9G|-brm10g|
-|Venter |No    |ropebwt2-m10g    |No    |3.98h |1.45h |22.8G|-bRm10g|
-|Moleculo|No   |ropebwt2-m10g    |No    |19.46h|6.82h |20.0G|-bRm10g|
-|Venter |No    |ropebwt2-m10g    |Yes   |3.95h |1.44h |22.2G|-brRm10g|
+|worm   |No    |[ropebwt-BCR][rb]|No    |1070s |480s  |2.2G |-bORtf -abcr|
+|worm   |No    |[ropebwt-bpr][rb]|-     |4279s |4296s |2.3G |-bOR|
+|worm   |No    |[ropebwt-rbr][rb]|-     |8895s |8915s |2.3G |-bOR -arbr|
+|worm   |No    |ropebwt2-single  |No    |5105s |5125s |2.5G |-bRm0|
+|worm   |No    |ropebwt2    |No    |1611s |647s  |11.8G|-bRm10g|
+|worm   |No    |ropebwt2    |Yes   |1268s |506s  |10.5G|-brRm10g|
+|worm   |Yes   |ropebwt2    |No    |3566s |1384s |18.0G|-bm10g|
+|worm   |Yes   |ropebwt2    |Yes   |3116s |1182s |15.9G|-brm10g|
+|NA12878|No    |[BEETL-BCR][bcr] |-     |14.66h|11.18h|31.6G|network disk|
+|NA12878|No    |[nvSetBWT][nvb]  |-     |19.33h|4.10h |63.8G|mem: 48g/4g|
 |NA12878|No    |[ropebwt-BCR][rb]|No    |6.92h |3.29h |39.3G|-bORtf -abcr|
-|NA12878|No    |[nvSetBWT][nvb]  |-     |19.33h|4.10h |63.8G|48g/4g|
-|NA12878|No    |ropebwt2-m10g    |No    |12.54h|5.06h |60.9G|-bRm10g|
-|NA12878|No    |ropebwt2-m10g    |Yes   |12.94h|4.96h |34.0G|-brRm10g|
-|NA12878|No    |BEETL-BCR        |-     |14.66h|11.18h|31.6G|network disk|
+|NA12878|No    |ropebwt2    |No    |12.54h|5.06h |60.9G|-bRm10g|
+|NA12878|No    |ropebwt2    |Yes   |12.94h|4.96h |34.0G|-brRm10g|
+|Venter |No    |ropebwt2    |No    |3.98h |1.45h |22.8G|-bRm10g|
+|Venter |No    |ropebwt2    |Yes   |3.95h |1.44h |22.2G|-brRm10g|
+|Moleculo|No   |ropebwt2    |No    |19.46h|6.82h |20.0G|-bRm10g|
 
 * For [ropebwt][rb] and ropebwt2, outputting the BWT to a plain text string
   takes significant time. We let them dump the BWT in their internal binary
