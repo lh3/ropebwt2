@@ -65,11 +65,11 @@ Given a list of strings over $\Sigma$, $(P_i)_{0\le i<m}$, let
 $T=P_0\$_0\ldots P_{m-1}\$_{m-1}$ with
 ${\tt\char36}_0{\tt\char60}\cdots{\char60\tt\char36}_{m-1}{\tt\char60A\char60C\char60G\char60T\char60N}$.
 The \emph{suffix array} of $T$ is an integer array $S$ such that $S(i)$,
-\mbox{$0\le i<|T|$}, is the position of the $i$-th smallest suffix in the
-collection $T$.  The \emph{Burrows-Wheeler Transform}, or \emph{BWT}, of $T$
+\mbox{$0\le i<|T|$}, is the starting position of the $i$-th smallest suffix in
+the collection $T$. The \emph{Burrows-Wheeler Transform}, or \emph{BWT}, of $T$
 can be computed as \mbox{$B[i]=T[S(i)-1]$}. For the description of the
 algorithm, we segment $B$ into \mbox{$B=B_{\tt\$}B_{\tt A}B_{\tt C}B_{\tt
-G}B_{\tt T}B_{\tt N}$}, where \mbox{$B_a[i]=B[i+C(a)]$} and
+G}B_{\tt T}B_{\tt N}$}, where \mbox{$B_a[i]=B[i+C(a)]$} with
 \mbox{$C(a)=|\{j:T[j]<a\}|$} being the array of accumulative counts. By the
 definition of suffix array and BWT, $B_a$ consists of all the symbols with
 their next symbol in $T$ being $a$.
