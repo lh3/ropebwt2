@@ -141,18 +141,13 @@ static inline int crlf_read_byte(crlf_t *crlf, uint32_t *l)
  * @param crlf    file handler
  * @param l       length of the run
  *
- * @return the symbol if not negative; <0 for errors
+ * @return the symbol if not negative; <0 for EOF or errors
  */
 static inline int crlf_read(crlf_t *crlf, uint64_t *l)
 {
 	int c, ret_c;
 	uint32_t l1;
-	if (crlf->buf_len == 0) {
-		if (crlf->l > 0) {
-			*l = crlf->l;
-			return crlf->c;
-		} else return -1;
-	}
+	if (crlf->buf_len == 0) return -1;
 	while ((c = crlf_read_byte(crlf, &l1)) == crlf->c)
 		crlf->l += l1;
 	*l = crlf->l, ret_c = crlf->c;
