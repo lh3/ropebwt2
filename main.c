@@ -8,10 +8,11 @@
 #include "rld0.h"
 #include "rle.h"
 #include "mrope.h"
+#include "crlf.h"
 #include "kseq.h"
 KSEQ_INIT(gzFile, gzread)
 
-#define ROPEBWT2_VERSION "r164"
+#define ROPEBWT2_VERSION "r177"
 
 static unsigned char seq_nt6_table[128] = {
     0, 5, 5, 5,  5, 5, 5, 5,  5, 5, 5, 5,  5, 5, 5, 5,
@@ -33,6 +34,7 @@ static unsigned char seq_nt6_table[128] = {
 #define FLAG_LINE 0x100
 #define FLAG_RLD 0x200
 #define FLAG_NON 0x400
+#define FLAG_CRLF 0x800
 
 static inline int kputsn(const char *p, int l, kstring_t *s)
 {
@@ -99,7 +101,7 @@ int main_ropebwt2(int argc, char *argv[])
 	kstring_t buf = { 0, 0, 0 };
 	double ct, rt;
 
-	while ((c = getopt(argc, argv, "PNLTFRCtrbdsl:n:m:v:o:i:q:M:")) >= 0) {
+	while ((c = getopt(argc, argv, "BPNLTFRCtrbdsl:n:m:v:o:i:q:M:")) >= 0) {
 		if (c == 'o') freopen(optarg, "w", stdout);
 		else if (c == 'F') flag &= ~FLAG_FOR;
 		else if (c == 'R') flag &= ~FLAG_REV;
@@ -110,6 +112,7 @@ int main_ropebwt2(int argc, char *argv[])
 		else if (c == 'L') flag |= FLAG_LINE;
 		else if (c == 'd') flag |= FLAG_RLD;
 		else if (c == 'N') flag |= FLAG_NON;
+		else if (c == 'B') flag |= FLAG_CRLF;
 		else if (c == 'P') flag &= ~FLAG_THR;
 		else if (c == 's') so = so != MR_SO_RCLO? MR_SO_RLO : MR_SO_RCLO;
 		else if (c == 'r') so = MR_SO_RCLO;
@@ -250,9 +253,23 @@ int main_ropebwt2(int argc, char *argv[])
 		const uint8_t *block;
 		rld_t *e = 0;
 		rlditr_t di;
+		crlf_t *crlf = 0;
+
 		if (flag & FLAG_RLD) {
 			e = rld_init(6, 3);
 			rld_itr_init(e, &di, 0);
+		} else if (flag & FLAG_CRLF) {
+			crlf_tag_t tag;
+			int64_t c[6];
+			uint32_t dectab[256];
+			crlf_dectab_RL53(dectab);
+			mr_get_c(mr, c);
+			tag.tag[0] = 'M', tag.tag[1] = 'C';
+			tag.len = 48;
+			tag.data = malloc(48);
+			memcpy(tag.data, c, 48);
+			crlf = crlf_create(0, 6, dectab, crlf_write_RL53, 1, &tag);
+			free(tag.data);
 		}
 		mr_itr_first(mr, &itr, 1);
 		while ((block = mr_itr_next_block(&itr)) != 0) {
@@ -263,6 +280,13 @@ int main_ropebwt2(int argc, char *argv[])
 					int64_t l;
 					rle_dec1(q, c, l);
 					rld_enc(e, &di, l, c);
+				}
+			} else if (flag & FLAG_CRLF) {
+				while (q < end) {
+					int c = 0;
+					int64_t l;
+					rle_dec1(q, c, l);
+					crlf_write(crlf, c, l);
 				}
 			} else {
 				while (q < end) {
@@ -276,6 +300,8 @@ int main_ropebwt2(int argc, char *argv[])
 		if (flag & FLAG_RLD) {
 			rld_enc_finish(e, &di);
 			rld_dump(e, "-");
+		} else if (flag & FLAG_CRLF) {
+			crlf_close(crlf);
 		} else if (!(flag & FLAG_BIN)) putchar('\n');
 	}
 	mr_destroy(mr);
