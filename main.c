@@ -12,7 +12,7 @@
 #include "kseq.h"
 KSEQ_INIT(gzFile, gzread)
 
-#define ROPEBWT2_VERSION "r179"
+#define ROPEBWT2_VERSION "r180"
 
 static unsigned char seq_nt6_table[128] = {
     0, 5, 5, 5,  5, 5, 5, 5,  5, 5, 5, 5,  5, 5, 5, 5,
@@ -144,6 +144,7 @@ int main_ropebwt2(int argc, char *argv[])
 		fprintf(stderr, "         -F         skip forward strand\n");
 		fprintf(stderr, "         -R         skip reverse strand\n");
 		fprintf(stderr, "         -N         skip sequences containing ambiguous bases\n");
+		fprintf(stderr, "         -x INT     cut at ambiguous bases and discard segment with length <INT [0]\n");
 		fprintf(stderr, "         -C         cut one base if forward==reverse\n");
 		fprintf(stderr, "         -q INT     hard mask bases with QUAL<INT [0]\n\n");
 		fprintf(stderr, "         -o FILE    write output to FILE [stdout]\n");
@@ -204,8 +205,6 @@ int main_ropebwt2(int argc, char *argv[])
 			if (k == 0) continue;
 			ks->seq.s[k] = 0;
 			ks->seq.l = l = k;
-			for (i = 0; i <= l; ++i)
-				putchar("\nACGTN"[s[i]]);
 		}
 		if ((flag & FLAG_ODD) && (l&1) == 0) { // then check reverse complement
 			for (i = 0; i < l>>1; ++i) // is the reverse complement is identical to itself?
