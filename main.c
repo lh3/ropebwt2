@@ -12,7 +12,7 @@
 #include "kseq.h"
 KSEQ_INIT(gzFile, gzread)
 
-#define ROPEBWT2_VERSION "r178"
+#define ROPEBWT2_VERSION "r179"
 
 static unsigned char seq_nt6_table[128] = {
     0, 5, 5, 5,  5, 5, 5, 5,  5, 5, 5, 5,  5, 5, 5, 5,
@@ -35,6 +35,7 @@ static unsigned char seq_nt6_table[128] = {
 #define FLAG_RLD 0x200
 #define FLAG_NON 0x400
 #define FLAG_CRLF 0x800
+#define FLAG_CUTN 0x1000
 
 static inline int kputsn(const char *p, int l, kstring_t *s)
 {
@@ -49,20 +50,6 @@ static inline int kputsn(const char *p, int l, kstring_t *s)
 	s->l += l;
 	s->s[s->l] = 0;
 	return l;
-}
-
-static inline int kputc(int c, kstring_t *s)
-{
-	if (s->l + 1 >= s->m) {
-		char *tmp;
-		s->m = s->l + 2;
-		kroundup32(s->m);
-		if ((tmp = (char*)realloc(s->s, s->m))) s->s = tmp;
-		else return EOF;
-	}
-	s->s[s->l++] = c;
-	s->s[s->l] = 0;
-	return c;
 }
 
 static void liftrlimit() // increase the soft limit to hard limit
@@ -96,12 +83,12 @@ int main_ropebwt2(int argc, char *argv[])
 	gzFile fp;
 	kseq_t *ks;
 	int64_t m = (int64_t)(.97 * 10 * 1024 * 1024 * 1024) + 1;;
-	int c, i, block_len = ROPE_DEF_BLOCK_LEN, max_nodes = ROPE_DEF_MAX_NODES, from_stdin = 0, verbose = 3, so = MR_SO_IO, min_q = 0, thr_min = -1;
+	int c, i, block_len = ROPE_DEF_BLOCK_LEN, max_nodes = ROPE_DEF_MAX_NODES, from_stdin = 0, verbose = 3, so = MR_SO_IO, min_q = 0, thr_min = -1, min_cut_len = 0;
 	int flag = FLAG_FOR | FLAG_REV | FLAG_THR;
 	kstring_t buf = { 0, 0, 0 };
 	double ct, rt;
 
-	while ((c = getopt(argc, argv, "BPNLTFRCtrbdsl:n:m:v:o:i:q:M:")) >= 0) {
+	while ((c = getopt(argc, argv, "BPNLTFRCtrbdsl:n:m:v:o:i:q:M:x:")) >= 0) {
 		if (c == 'o') freopen(optarg, "w", stdout);
 		else if (c == 'F') flag &= ~FLAG_FOR;
 		else if (c == 'R') flag &= ~FLAG_REV;
@@ -121,6 +108,7 @@ int main_ropebwt2(int argc, char *argv[])
 		else if (c == 'v') verbose = atoi(optarg);
 		else if (c == 'q') min_q = atoi(optarg);
 		else if (c == 'M') thr_min = atoi(optarg);
+		else if (c == 'x') min_cut_len = atoi(optarg), flag |= FLAG_CUTN;
 		else if (c == 'i') {
 			FILE *fp;
 			if ((fp = fopen(optarg, "rb")) == 0) {
@@ -165,6 +153,11 @@ int main_ropebwt2(int argc, char *argv[])
 		return 1;
 	}
 
+	if ((flag & FLAG_CUTN) && ((flag & FLAG_ODD) || m == 0 || so == MR_SO_IO)) {
+		fprintf(stderr, "[E::%s] option '-x' cannot be used with '-C' or '-m0', or without '-r' or '-s'\n", __func__);
+		return 1;
+	}
+
 	liftrlimit();
 	if (mr == 0) mr = mr_init(max_nodes, block_len, so);
 	if (thr_min > 0) mr_thr_min(mr, thr_min);
@@ -198,6 +191,22 @@ int main_ropebwt2(int argc, char *argv[])
 			int tmp = s[l-1-i];
 			s[l-1-i] = s[i]; s[i] = tmp;
 		}
+		if (flag & FLAG_CUTN) {
+			int b, k;
+			for (k = b = i = 0; i < l; ++i) {
+				if (s[i] == 5) {
+					if (i - b < min_cut_len) k -= i - b;
+					else s[k++] = 0;
+					b = i + 1;
+				} else s[k++] = s[i];
+			}
+			if (k > 0 && s[k-1] == 0) --k; // in case the last (actually first) base is N
+			if (k == 0) continue;
+			ks->seq.s[k] = 0;
+			ks->seq.l = l = k;
+			for (i = 0; i <= l; ++i)
+				putchar("\nACGTN"[s[i]]);
+		}
 		if ((flag & FLAG_ODD) && (l&1) == 0) { // then check reverse complement
 			for (i = 0; i < l>>1; ++i) // is the reverse complement is identical to itself?
 				if (s[i] + s[l-1-i] != 5) break;
@@ -206,10 +215,8 @@ int main_ropebwt2(int argc, char *argv[])
 			ks->seq.l = l;
 		}
 		if (flag & FLAG_FOR) {
-			if (m) {
-				kputsn((char*)ks->seq.s, ks->seq.l, &buf);
-				kputc(0, &buf);
-			} else mr_insert1(mr, s);
+			if (m) kputsn((char*)ks->seq.s, ks->seq.l + 1, &buf);
+			else mr_insert1(mr, s);
 		}
 		if (flag & FLAG_REV) {
 			for (i = 0; i < l>>1; ++i) {
@@ -219,10 +226,8 @@ int main_ropebwt2(int argc, char *argv[])
 				s[i] = tmp;
 			}
 			if (l&1) s[i] = (s[i] >= 1 && s[i] <= 4)? 5 - s[i] : s[i];
-			if (m) {
-				kputsn((char*)ks->seq.s, ks->seq.l, &buf);
-				kputc(0, &buf);
-			} else mr_insert1(mr, s);
+			if (m) kputsn((char*)ks->seq.s, ks->seq.l + 1, &buf);
+			else mr_insert1(mr, s);
 		}
 		if (m && buf.l >= m) {
 			double ct = cputime(), rt = realtime();
