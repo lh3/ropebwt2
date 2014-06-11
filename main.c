@@ -12,7 +12,7 @@
 #include "kseq.h"
 KSEQ_INIT(gzFile, gzread)
 
-#define ROPEBWT2_VERSION "r180"
+#define ROPEBWT2_VERSION "r181"
 
 static unsigned char seq_nt6_table[128] = {
     0, 5, 5, 5,  5, 5, 5, 5,  5, 5, 5, 5,  5, 5, 5, 5,
@@ -162,7 +162,7 @@ int main_ropebwt2(int argc, char *argv[])
 	liftrlimit();
 	if (mr == 0) mr = mr_init(max_nodes, block_len, so);
 	if (thr_min > 0) mr_thr_min(mr, thr_min);
-	fp = !from_stdin && strcmp(argv[optind], "-")? gzopen(argv[optind], "rb") : gzdopen(fileno(stdin), "rb");
+	fp = optind < argc && strcmp(argv[optind], "-")? gzopen(argv[optind], "rb") : gzdopen(fileno(stdin), "rb");
 	ks = kseq_init(fp);
 	ct = cputime(); rt = realtime();
 	for (;;) {
