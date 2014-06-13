@@ -12,7 +12,7 @@
 #include "kseq.h"
 KSEQ_INIT(gzFile, gzread)
 
-#define ROPEBWT2_VERSION "r181"
+#define ROPEBWT2_VERSION "r182"
 
 static unsigned char seq_nt6_table[128] = {
     0, 5, 5, 5,  5, 5, 5, 5,  5, 5, 5, 5,  5, 5, 5, 5,
@@ -242,8 +242,13 @@ int main_ropebwt2(int argc, char *argv[])
 		if (verbose >= 3) fprintf(stderr, "[M::%s] inserted %ld symbols in %.3f sec, %.3f CPU sec\n",
 				__func__, (long)buf.l, realtime() - rt, cputime() - ct);
 	}
-	if (verbose >= 3) fprintf(stderr, "[M::%s] constructed FM-index in %.3f sec, %.3f CPU sec\n",
-			__func__, realtime() - rt, cputime() - ct);
+	if (verbose >= 3) {
+		int64_t tot, c[6];
+		fprintf(stderr, "[M::%s] constructed FM-index in %.3f sec, %.3f CPU sec\n", __func__, realtime() - rt, cputime() - ct);
+		tot = mr_get_c(mr, c);
+		fprintf(stderr, "[M::%s] symbol counts: ($, A, C, G, T, N) = (%ld, %ld, %ld, %ld, %ld, %ld)\n", __func__,
+				(long)c[0], (long)c[1], (long)c[2], (long)c[3], (long)c[4], (long)c[5]);
+	}
 	free(buf.s);
 	kseq_destroy(ks);
 	gzclose(fp);
