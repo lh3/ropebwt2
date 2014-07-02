@@ -12,7 +12,7 @@
 #include "kseq.h"
 KSEQ_INIT(gzFile, gzread)
 
-#define ROPEBWT2_VERSION "r182"
+#define ROPEBWT2_VERSION "r183"
 
 static unsigned char seq_nt6_table[128] = {
     0, 5, 5, 5,  5, 5, 5, 5,  5, 5, 5, 5,  5, 5, 5, 5,
@@ -308,6 +308,8 @@ int main_ropebwt2(int argc, char *argv[])
 		}
 		if (flag & FLAG_RLD) {
 			rld_enc_finish(e, &di);
+			fprintf(stderr, "[M::%s] rld: (tot, $, A, C, G, T, N) = (%ld, %ld, %ld, %ld, %ld, %ld, %ld)\n", __func__,
+					(long)e->mcnt[0], (long)e->mcnt[1], (long)e->mcnt[2], (long)e->mcnt[3], (long)e->mcnt[4], (long)e->mcnt[5], (long)e->mcnt[6]);
 			rld_dump(e, "-");
 		} else if (flag & FLAG_CRLF) {
 			crlf_close(crlf);
