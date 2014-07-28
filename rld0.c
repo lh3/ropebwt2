@@ -30,19 +30,24 @@ static const char LogTable256[256] = {
     LT(7), LT(7), LT(7), LT(7), LT(7), LT(7), LT(7), LT(7)
 };
 
-static inline int ilog2(uint32_t v)
+static inline int ilog2_32(uint32_t v)
 {
 	register uint32_t t, tt;
-	if ((tt = (v >> 16))) return (t = (tt >> 8)) ? 24 + LogTable256[t] : 16 + LogTable256[tt];
-	return (t = (v >> 8)) ? 8 + LogTable256[t] : LogTable256[v];
+	if ((tt = v>>16)) return (t = tt>>8) ? 24 + LogTable256[t] : 16 + LogTable256[tt];
+	return (t = v>>8) ? 8 + LogTable256[t] : LogTable256[v];
 }
 
-static inline int64_t rld_delta_enc1(int64_t x, int *width)
+static inline int ilog2(uint64_t v)
+{
+	return v>>32? 32 + ilog2_32(v>>32) : ilog2_32(v);
+}
+
+static inline int64_t rld_delta_enc1(uint64_t x, int *width)
 {
 	int y = ilog2(x);
-	int z = ilog2(y + 1);
+	int z = ilog2_32(y + 1);
 	*width = (z<<1) + 1 + y;
-	return (x^(1<<y)) | (int64_t)(y+1)<<y;
+	return (x ^ (uint64_t)1<<y) | (uint64_t)(y+1)<<y;
 }
 
 /***********************************
