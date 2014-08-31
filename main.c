@@ -12,7 +12,7 @@
 #include "kseq.h"
 KSEQ_INIT(gzFile, gzread)
 
-#define ROPEBWT2_VERSION "r185"
+#define ROPEBWT2_VERSION "r186"
 
 static unsigned char seq_nt6_table[128] = {
     0, 5, 5, 5,  5, 5, 5, 5,  5, 5, 5, 5,  5, 5, 5, 5,
@@ -75,6 +75,15 @@ double realtime()
 	struct timezone tzp;
 	gettimeofday(&tp, &tzp);
 	return tp.tv_sec + tp.tv_usec * 1e-6;
+}
+
+static inline int is_rev_same(int l, const uint8_t *s)
+{
+	int i;
+	if (l&1) return 0;
+	for (i = 0; i < l>>1; ++i)
+		if (s[i] + s[l-1-i] != 5) break;
+	return (i == l>>1);
 }
 
 int main_ropebwt2(int argc, char *argv[])
@@ -154,8 +163,8 @@ int main_ropebwt2(int argc, char *argv[])
 		return 1;
 	}
 
-	if ((flag & FLAG_CUTN) && ((flag & FLAG_ODD) || m == 0 || so == MR_SO_IO)) {
-		fprintf(stderr, "[E::%s] option '-x' cannot be used with '-C' or '-m0', or without '-r' or '-s'\n", __func__);
+	if ((flag & FLAG_CUTN) && m == 0) {
+		fprintf(stderr, "[E::%s] option '-x' cannot be used with '-m0'\n", __func__);
 		return 1;
 	}
 
@@ -194,23 +203,21 @@ int main_ropebwt2(int argc, char *argv[])
 		}
 		if (flag & FLAG_CUTN) {
 			int b, k;
-			for (k = b = i = 0; i < l; ++i) {
-				if (s[i] == 5) {
-					if (i - b < min_cut_len) k -= i - b;
-					else s[k++] = 0;
+			for (k = b = i = 0; i <= l; ++i) {
+				if (i == l || s[i] == 5) {
+					int tmp_l = i - b;
+					if (tmp_l >= min_cut_len) {
+						if ((flag & FLAG_ODD) && is_rev_same(tmp_l, &s[k - tmp_l])) --k;
+						s[k++] = 0;
+					} else k -= tmp_l; // skip this segment
 					b = i + 1;
 				} else s[k++] = s[i];
 			}
-			if (k > 0 && s[k-1] == 0) --k; // in case the last (actually first) base is N
-			if (k == 0) continue;
-			ks->seq.s[k] = 0;
+			if (--k == 0) continue;
 			ks->seq.l = l = k;
 		}
-		if ((flag & FLAG_ODD) && (l&1) == 0) { // then check reverse complement
-			for (i = 0; i < l>>1; ++i) // is the reverse complement is identical to itself?
-				if (s[i] + s[l-1-i] != 5) break;
-			if (i == l>>1) --l; // if so, trim 1bp from the end
-			ks->seq.s[l] = 0;
+		if ((flag & FLAG_ODD) && is_rev_same(l, s)) {
+			ks->seq.s[--l] = 0;
 			ks->seq.l = l;
 		}
 		if (flag & FLAG_FOR) {
