@@ -1,4 +1,4 @@
-##Introduction
+## Introduction
 
 RopeBWT2 is an tool for constructing the FM-index for a collection of DNA
 sequences. It works by incrementally inserting one or multiple sequences into an
@@ -39,7 +39,7 @@ E5-2697v2 CPUs at 2.70GHz][cpu], ropeBWT2 is able to the index for 1.2 billion
 101bp reads in five wall-clock hours with 34G peak memory.
 
 
-##Examples
+## Examples
 
 1. Construct the BWT for sequences in the input order:
 
@@ -67,7 +67,7 @@ E5-2697v2 CPUs at 2.70GHz][cpu], ropeBWT2 is able to the index for 1.2 billion
         ropebwt2 -bi in.fmr in.fa > out.fmr
 
 
-##Methods Overview
+## Methods Overview
 
 RopeBWT2 keeps the entire BWT in six B+ trees with the *i*-th tree storing the
 substring B[C(i)+1..C(i+1)], where C(i) equals the number of
@@ -95,7 +95,7 @@ find the insertion points with the complemented sequence but insert with the
 original string.
 
 
-###RopeBWT2 vs. ropeBWT
+### RopeBWT2 vs. ropeBWT
 
 RopeBWT is the predecessor of ropeBWT2. The old version implements three
 separate algorithms: in-memory BCR, single-string incremental FM-index on top
@@ -111,14 +111,14 @@ strings. RopeBWT2 also uses more advanced run-length encoding, which will be
 more space efficient for highly repetitive inputs and opens the possibility for
 inserting a run in addition individual symbols.
 
-###RopeBWT2 vs. BEETL
+### RopeBWT2 vs. BEETL
 
 [BEETL][5] is the original implementation of the BCR algorithm. It uses disk to
 alleviate the memory requirement for constructing large FM-index and therefore
 heavily relies on fast linear disk access. BEETL supports the SAP order for
 inserting sequences but not RLO or RCLO.
 
-###RopeBWT2 vs. dynamic FM-index
+### RopeBWT2 vs. dynamic FM-index
 
 RopeBWT was conceived in 2012, but the algorithm has been invented several
 years earlier for multiple times. [Dynamic FM-index][3] is a notable
@@ -128,9 +128,9 @@ apparently ten times slower and uses more memory on the index construction.
 
 
 
-##Performance Evaluation
+## Performance Evaluation
 
-###Data sets
+### Data sets
 
 1. [**worm**] 66,764,080 100bp *C. eleganse* reads from [SRR065390][ce] with pairs
    containing any ambiguous bases filtered out. The total coverage is about 66X.
@@ -145,13 +145,13 @@ apparently ten times slower and uses more memory on the index construction.
 4. [**Moleculo**] 22,721,139 [Moleculo reads][mol] totalled in 91,476,572,938bp.
    This data set contains a few hundred ambiguous bases which are not filtered.
 
-###Hardware and OS
+### Hardware and OS
 
 CPU: 48 cores of [Xeon E5-2697 v2 at 2.70GHz][cpu]. GPU: one [Nvidia Tesla
 K40][gpu]. RAM: 128GB. OS: Red Hat Enterprise Linux 6. CUDA: 5.5. File system:
 Isilon OneFS network file system.
 
-###Results
+### Results
 
 |Dataset|w/ rev|Algorithm        |Sorted|CPU   |Real  |RSS  |Comment|
 |-------|:-----|:----------------|:-----|:-----|:-----|:----|:------|
