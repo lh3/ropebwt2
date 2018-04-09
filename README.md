@@ -38,6 +38,12 @@ carefully optimized for both speed and memory usage. On a new machine with [Xeon
 E5-2697v2 CPUs at 2.70GHz][cpu], ropeBWT2 is able to the index for 1.2 billion
 101bp reads in five wall-clock hours with 34G peak memory.
 
+If you use RopeBWT2 or its predecessor [RopeBWT][1] in your work, please cite:
+
+> Li H (2014) Fast construction of FM-index for long sequence reads,
+> *Bioinformatics*, **30**:3274-5. [PMID: 25107872]
+
+
 
 ## Examples
 
