@@ -138,7 +138,7 @@ apparently ten times slower and uses more memory on the index construction.
 
 ### Data sets
 
-1. [**worm**] 66,764,080 100bp *C. eleganse* reads from [SRR065390][ce] with pairs
+1. [**worm**] 66,764,080 100bp *C. elegans* reads from [SRR065390][ce] with pairs
    containing any ambiguous bases filtered out. The total coverage is about 66X.
 
 2. [**Venter**] 31,861,134 [Craig Venter reads][venter] totalled in 27,899,994,048bp.
